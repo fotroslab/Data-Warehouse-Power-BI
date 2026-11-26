@@ -9,12 +9,14 @@ app.py — اپ پیش‌نمایش پروژهٔ ۵: «SQL Server + Data Warehou
 صداقت: این اپ فقط *طرح و اثبات منطق* را نشان می‌دهد. Report Server نصب نشده، schema.sql روی
 SQL Server واقعی اجرا نشده و SQLite (model/dw_demo.sqlite) جایگزین محلی است. اعداد، دادهٔ
 نمونهٔ seed=14030505 هستند و فروش واقعی هیچ سازمانی نیستند.
+
+طراحی: یک سیستم طراحی مینیمال و «طبیعی» — پالت خنثی، یک رنگ لهجه، مقیاس تایپوگرافی آرام،
+حاشیه‌های زیاد و کادرهای کم. قواعد در همین فایل (بخش CSS) تعریف شده‌اند.
 """
 from __future__ import annotations
 
 import base64
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -30,50 +32,41 @@ ETL_SCRIPT = BASE_DIR / "model" / "etl_staging_to_dw.py"
 DIAGRAM = BASE_DIR / "assets" / "model_diagram.svg"
 FONT_DIR = BASE_DIR / "assets" / "fonts"
 
-INK = "#232b36"
-ACCENT = "#d64541"
-MUTED = "#5b6674"
-SURFACE = "#ffffff"
-PAGE_BG = "#f6f7f8"
-GRID = "#e9ecef"
+# ------------------------------------------------------------------ پالت طراحی
+# خنثی‌های گرم‌مایل + یک لهجهٔ آجری. بدون مشکی مطلق و بدون قرمز فریادزن.
+INK        = "#1f2630"   # متن اصلی
+INK_SOFT   = "#3d4854"   # متن ثانویه
+MUTED      = "#6f7a88"   # متن کم‌رنگ
+FAINT      = "#98a2ae"   # راهنما
+LINE       = "#e6e9ed"   # خط‌های جداکننده
+HAIRLINE   = "#eef0f3"
+SURFACE    = "#ffffff"
+PAGE       = "#f7f8f9"
+TINT       = "#f3f5f7"   # پس‌زمینهٔ ملایم بلوک‌ها
+ACCENT     = "#9c4a3c"   # آجری (لهجه)
+ACCENT_2   = "#3c6e80"   # فیروزه‌ای مات (دوم)
+WARN_BG    = "#fbf6ee"
+WARN_LINE  = "#e8d9bf"
+WARN_INK   = "#7a6033"
 
-PAGES = [
-    "نمای کلی انبار داده",
-    "پایپ‌لاین زندهٔ ETL",
-    "تحلیل فروش نمونه",
-    "استقرار و معماری",
-    "دربارهٔ داده",
-]
-
-# --------------------------------------------------------------------------- گارد نسخه
-# Streamlit Community Cloud / سرورهای داخلی ممکن است پایتون قدیمی داشته باشند.
-# این گارد پیش از هر کاری، پیام فارسی خوانا نشان می‌دهد.
-if sys.version_info < (3, 9):
-    st.error(
-        "این برنامه به پایتون ۳٫۹ یا بالاتر نیاز دارد. "
-        f"نسخهٔ فعلی: {sys.version.split()[0]} — "
-        "در Streamlit Cloud از Settings → Python version نسخهٔ ۳٫۱۱ یا ۳٫۱۲ را انتخاب کنید."
-    )
-    st.stop()
+PAGES = ["نمای کلی", "پایپ‌لاین ETL", "تحلیل فروش", "استقرار", "دربارهٔ داده"]
 
 st.set_page_config(
-    page_title="انبار دادهٔ سازمانی — پروژهٔ ۵",
-    page_icon="🗄️",
+    page_title="انبار دادهٔ فروش — پروژهٔ ۵",
+    page_icon="▦",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# --------------------------------------------------------------------------- کمکی‌ها
+# ------------------------------------------------------------------ کمکی‌ها
 FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 
 
 def fa_digits(text) -> str:
-    """تبدیل ارقام لاتین به فارسی (برای متن‌های نمایشی)."""
     return str(text).translate(FA_DIGITS)
 
 
 def fa_num(n, decimals: int = 0) -> str:
-    """عدد با جداکنندهٔ هزارگان فارسی."""
     try:
         v = f"{n:,.{decimals}f}"
     except (TypeError, ValueError):
@@ -81,39 +74,30 @@ def fa_num(n, decimals: int = 0) -> str:
     return fa_digits(v).replace(",", "٬").replace(".", "٫")
 
 
-def fa_humt(rial_value: float) -> str:
-    """نمایش خلاصهٔ مبلغ ریالی به «همت» (هزار میلیارد ریال)."""
-    return f"{fa_num(rial_value / 1e12, 2)} همت"
-
-
-def axis_hamt(fig: go.Figure) -> go.Figure:
-    """محور مبلغ بر حسب همت (هزار میلیارد ریال) با برچسب فارسی."""
-    fig.update_xaxes(tickformat=",.1f", ticksuffix=" همت", title=None)
-    return fig
-
-
-def axis_billion(fig: go.Figure) -> go.Figure:
-    """محور مبلغ بر حسب میلیارد ریال."""
-    fig.update_xaxes(tickformat=",.0f", ticksuffix=" م.ریال", title=None)
-    fig.update_yaxes(tickformat=",.0f", ticksuffix=" م.ریال", title=None)
-    return fig
+def compact(n: float) -> str:
+    """نمایش خلاصهٔ مبلغ: همت / میلیارد ریال."""
+    n = float(n or 0)
+    if abs(n) >= 1e12:
+        return f"{fa_num(n / 1e12, 2)} همت"
+    if abs(n) >= 1e9:
+        return f"{fa_num(n / 1e9, 0)} میلیارد"
+    return fa_num(n)
 
 
 def _font_face_css() -> str:
-    """خواندن فونت‌های Vazirmatn و تزریق به‌صورت data-URI (بدون نیاز به CDN)."""
-    css_parts = []
     weights = {"Vazirmatn-Regular.woff2": 400, "Vazirmatn-Medium.woff2": 500,
                "Vazirmatn-Bold.woff2": 700}
+    parts = []
     for fname, weight in weights.items():
         f = FONT_DIR / fname
         if not f.exists():
             continue
         b64 = base64.b64encode(f.read_bytes()).decode("ascii")
-        css_parts.append(
+        parts.append(
             "@font-face{font-family:'Vazirmatn FD';font-style:normal;font-weight:%d;"
-            "font-display:swap;src:url(data:font/woff2;base64,%s) format('woff2');}" % (weight, b64)
-        )
-    return "\n".join(css_parts)
+            "font-display:swap;src:url(data:font/woff2;base64,%s) format('woff2');}"
+            % (weight, b64))
+    return "\n".join(parts)
 
 
 def inject_css() -> None:
@@ -122,121 +106,275 @@ def inject_css() -> None:
 <style>
 {_font_face_css()}
 
+/* ============================ پایهٔ تایپوگرافی ============================ */
 html, body, .stApp, [class*="css"] {{
     font-family: 'Vazirmatn FD', Tahoma, sans-serif !important;
     direction: rtl;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }}
-.stApp {{ background: {PAGE_BG}; }}
-section[data-testid="stSidebar"] {{ direction: rtl; background: #ffffff; border-left: 1px solid #e3e6ea; }}
-section[data-testid="stSidebar"] * {{ font-family: 'Vazirmatn FD', Tahoma, sans-serif !important; }}
-.block-container {{ padding-top: 1.4rem; padding-bottom: 2.5rem; max-width: 1400px; }}
+.stApp {{ background:{PAGE}; }}
 
-/* عنوان‌ها */
-h1, h2, h3, h4 {{ color: {INK}; font-weight: 700; }}
-h1 {{ font-size: 1.85rem; }}
-h2 {{ font-size: 1.35rem; margin-top: 1.1rem; }}
-h3 {{ font-size: 1.1rem; }}
-
-/* کارت‌ها */
-.kpi-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin:10px 0 6px; }}
-.kpi {{
-  background:{SURFACE}; border:1px solid #e3e6ea; border-radius:10px; padding:14px 16px;
-  box-shadow:0 1px 2px rgba(35,43,54,.04); border-top:3px solid {INK};
+/* راست‌چینی صریح: direction تنها کافی نیست، Streamlit خودش left می‌گذارد */
+.stApp, .stApp p, .stApp span, .stApp div, .stApp li, .stApp label,
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+[data-testid="stMarkdownContainer"], [data-testid="stMarkdown"],
+[data-testid="stHeading"], [data-testid="stCaptionContainer"],
+[data-testid="stMetricLabel"], [data-testid="stExpander"], [data-testid="stAlert"],
+[data-testid="stVerticalBlock"], [data-testid="stHorizontalBlock"] {{
+    direction: rtl !important; text-align: right;
 }}
-.kpi.accent {{ border-top-color:{ACCENT}; }}
-.kpi .label {{ color:{MUTED}; font-size:.8rem; margin-bottom:6px; }}
-.kpi .value {{ color:{INK}; font-size:1.5rem; font-weight:700; line-height:1.25; }}
-.kpi .hint {{ color:#8a94a3; font-size:.72rem; margin-top:4px; }}
-
-/* بنر */
-.banner {{
-  background:#fff8f1; border:1px solid #e8c9a0; border-right:4px solid #c08b2e;
-  border-radius:8px; padding:10px 14px; color:#6b4a1e; font-size:.85rem; margin:6px 0 16px;
-}}
-.banner-ok {{
-  background:#f2f7f2; border:1px solid #c9ddc9; border-right:4px solid #4b7a4b;
-  border-radius:8px; padding:10px 14px; color:#33512f; font-size:.85rem; margin:6px 0 16px;
-}}
-.banner-bad {{
-  background:#fdf2f2; border:1px solid #eec6c4; border-right:4px solid {ACCENT};
-  border-radius:8px; padding:10px 14px; color:#7d2b28; font-size:.85rem; margin:6px 0 16px;
+.stApp code, .stApp pre, .stApp pre *, .stApp kbd {{
+    direction: ltr !important; text-align: left !important; unicode-bidi: embed;
 }}
 
-/* گام‌های پایپ‌لاین */
-.flow {{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0 14px; direction:rtl; }}
-.flow .step {{
-  background:#fff; border:1px solid #dfe3e8; border-radius:8px; padding:9px 12px;
-  font-size:.8rem; color:{INK}; min-width:120px; text-align:center;
+/* مقیاس آرام: اندازه‌ها کوچک‌تر و وزن‌ها سبک‌تر از پیش‌فرض */
+[data-testid="stMarkdownContainer"] {{ font-size:.875rem; line-height:1.95; color:{INK_SOFT}; }}
+[data-testid="stMarkdownContainer"] p {{ margin:0 0 .55rem; }}
+h1, h2, h3, h4 {{ color:{INK}; font-weight:600 !important; letter-spacing:-.2px; }}
+h1 {{ font-size:1.45rem !important; margin:.1rem 0 .2rem !important; }}
+h2 {{ font-size:1.06rem !important; margin:1.5rem 0 .5rem !important; }}
+h3 {{ font-size:.95rem !important; margin:1rem 0 .35rem !important; }}
+h2::after {{
+  content:""; display:block; width:28px; height:2px; background:{ACCENT};
+  margin:.42rem 0 0; border-radius:2px; opacity:.75;
 }}
-.flow .step b {{ display:block; font-size:.72rem; color:{MUTED}; font-weight:500; margin-bottom:3px; }}
-.flow .arrow {{ color:#a3abb6; font-size:1.1rem; }}
-.flow .step.hot {{ border-color:{ACCENT}; background:#fdf2f2; }}
 
-/* جدول‌ها و کد */
-[data-testid="stDataFrame"] {{ direction:ltr; }}
-code, pre {{ direction:ltr; text-align:left; font-family: ui-monospace, monospace !important; }}
-.stCode pre code {{ font-size:.78rem; }}
+.block-container {{ padding:2.1rem 2.4rem 3.5rem; max-width:1260px; }}
+hr {{ border:none; border-top:1px solid {HAIRLINE}; margin:1.4rem 0; }}
 
-/* نمودارها LTR می‌مانند تا برچسب فارسی نصفه نشود */
-.js-plotly-plot, .js-plotly-plot .plot-container {{ direction: ltr !important; }}
-
-/* دکمه */
-.stButton > button {{
-  background:{INK}; color:#fff; border:1px solid {INK}; border-radius:8px;
-  padding:.45rem 1.1rem; font-family:'Vazirmatn FD',Tahoma,sans-serif; font-weight:500;
+/* ============================ سایدبار ============================ */
+section[data-testid="stSidebar"] {{
+  background:{SURFACE}; border-left:1px solid {LINE}; direction:rtl;
 }}
-.stButton > button:hover {{ background:{ACCENT}; border-color:{ACCENT}; color:#fff; }}
-[data-testid="stMetricValue"] {{ color:{INK}; font-size:1.35rem; }}
-
-.legend-note {{ color:{MUTED}; font-size:.76rem; margin-top:-6px; }}
-
-/* دکمهٔ جمع‌شدن سایدبار: در RTL و بدون فونت آیکون، متن ligature نمایش داده می‌شد */
-[data-testid="stSidebarCollapseButton"],
-[data-testid="stSidebarCollapseButton"] *,
-[data-testid="collapsedControl"],
-[data-testid="collapsedControl"] * {{ display:none !important; }}
-[data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] {{ display:none !important; }}
-
-/* لایه‌های معماری (صفحهٔ استقرار) */
-.arch {{ display:flex; flex-direction:column; gap:6px; margin:6px 0 10px; }}
-.arch .layer {{
-  background:#fff; border:1px solid #dfe3e8; border-right:4px solid {INK}; border-radius:8px;
-  padding:9px 13px; display:flex; justify-content:space-between; align-items:center; gap:12px;
+section[data-testid="stSidebar"] * {{ font-family:'Vazirmatn FD',Tahoma,sans-serif !important; }}
+section[data-testid="stSidebar"] .block-container {{ padding:.9rem 1rem 1.2rem; }}
+[data-testid="stSidebarNav"] {{ display:none; }}
+[data-testid="stSidebarCollapseButton"], [data-testid="stSidebarCollapseButton"] *,
+[data-testid="collapsedControl"], [data-testid="collapsedControl"] *,
+[data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] {{
+  display:none !important;
 }}
-.arch .layer.accent {{ border-right-color:{ACCENT}; background:#fdf7f7; }}
-.arch .layer .t {{ font-size:.83rem; color:{INK}; font-weight:600; }}
-.arch .layer .d {{ font-size:.73rem; color:{MUTED}; text-align:left; direction:ltr; white-space:nowrap; }}
-.arch .gap {{ text-align:center; color:#a3abb6; font-size:.85rem; line-height:1; }}
-hr {{ border-color:#e3e6ea; }}
+
+/* ناوبری سایدبار: رادیو به شکل فهرست آرام */
+section[data-testid="stSidebar"] [role="radiogroup"] {{ gap:2px !important; }}
+section[data-testid="stSidebar"] [role="radiogroup"] label {{
+  padding:6px 10px !important; border-radius:6px; cursor:pointer; min-height:0 !important;
+  margin:0 !important; font-size:.82rem !important; color:{INK_SOFT} !important;
+  transition:background .15s;
+}}
+section[data-testid="stSidebar"] [role="radiogroup"] label > div,
+section[data-testid="stSidebar"] [role="radiogroup"] label > div > div {{
+  min-height:0 !important; gap:0 !important; align-items:center !important; padding:0 !important;
+}}
+section[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stMarkdownContainer"] p {{
+  margin:0 !important; font-size:.82rem !important; line-height:1.7 !important;
+}}
+section[data-testid="stSidebar"] [role="radiogroup"] label:hover {{ background:{TINT}; }}
+section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{
+  background:#eef1f4; color:{INK} !important; font-weight:500;
+  box-shadow:inset -2px 0 0 {ACCENT};
+}}
+section[data-testid="stSidebar"] [role="radiogroup"] label > div > div:first-child {{ display:none; }}
+
+.brand {{ padding:0 2px 13px; border-bottom:1px solid {HAIRLINE}; margin-bottom:10px; }}
+.brand .mark {{
+  width:30px; height:30px; border-radius:8px; background:{INK}; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:.9rem; margin-bottom:9px;
+}}
+.brand .name {{ font-size:.9rem; font-weight:600; color:{INK}; }}
+.brand .sub {{ font-size:.72rem; color:{MUTED}; margin-top:2px; line-height:1.7; }}
+
+.side-note {{ margin-top:16px; padding-top:12px; border-top:1px solid {HAIRLINE};
+  font-size:.71rem; color:{MUTED}; line-height:2; }}
+.side-note b {{ color:{INK_SOFT}; font-weight:600; }}
+.side-dot {{ display:inline-block; width:5px; height:5px; border-radius:50%;
+  background:{WARN_INK}; margin-inline-end:5px; vertical-align:middle; }}
+
+/* ============================ سربرگ صفحه ============================ */
+.page-head {{ margin:0 0 1.5rem; }}
+.page-head .eyebrow {{ font-size:.71rem; color:{FAINT}; letter-spacing:.2px; margin-bottom:5px;
+  direction:rtl; text-align:right; }}
+.page-head h1 {{ font-size:1.38rem !important; margin:0 0 5px !important; }}
+.page-head .lede {{ font-size:.82rem; color:{MUTED}; line-height:1.85; max-width:74ch;
+  direction:rtl; text-align:right; }}
+
+/* ============================ KPI ============================ */
+.kpis {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  align-items:start; gap:1px; background:{LINE}; border:1px solid {LINE}; border-radius:9px;
+  overflow:hidden; margin:2px 0 6px; }}
+.kpi {{ background:{SURFACE}; padding:11px 15px 12px; }}
+.kpi .label {{ font-size:.7rem; color:{MUTED}; margin-bottom:6px; line-height:1.5; }}
+.kpi .value {{ font-size:1.15rem; font-weight:600; color:{INK}; line-height:1.35;
+  letter-spacing:-.2px; }}
+.kpi .hint {{ font-size:.66rem; color:{FAINT}; margin-top:5px; line-height:1.6; }}
+.kpi.warn .value {{ color:{WARN_INK}; font-size:.92rem; font-weight:500; }}
+
+/* ============================ بلوک‌های محتوا ============================ */
+.note {{
+  border-right:2px solid {WARN_LINE}; background:{WARN_BG}; color:{WARN_INK};
+  border-radius:0 6px 6px 0; padding:8px 12px; font-size:.76rem; line-height:1.85;
+  margin:0 0 1.2rem;
+}}
+.quiet {{ font-size:.73rem; color:{FAINT}; line-height:1.9; margin:.35rem 0 0; }}
+
+/* جدول راست‌چین */
+.tbl-wrap {{ width:100%; overflow-x:auto; border:1px solid {LINE}; border-radius:8px;
+  background:{SURFACE}; margin:2px 0 4px; }}
+.tbl-scroll {{ max-height:var(--h,440px); overflow-y:auto; }}
+table.rt {{ width:100%; min-width:100%; border-collapse:collapse; direction:rtl; }}
+table.rt thead th {{
+  background:{SURFACE}; color:{MUTED}; font-weight:500; font-size:.7rem; line-height:1.6;
+  padding:8px 12px; text-align:right; white-space:nowrap;
+  border-bottom:1px solid {LINE}; position:sticky; top:0; z-index:2;
+}}
+table.rt tbody td {{ padding:7px 12px; font-size:.78rem; color:{INK_SOFT}; line-height:1.65;
+  text-align:right; border-bottom:1px solid {HAIRLINE}; vertical-align:middle; }}
+table.rt tbody tr:last-child td {{ border-bottom:none; }}
+table.rt tbody tr:hover td {{ background:#fbfbfc; }}
+table.rt td.num {{ font-variant-numeric:tabular-nums; white-space:nowrap; color:{INK}; }}
+table.rt td.mono {{ direction:ltr; text-align:left; font-family:ui-monospace,monospace;
+  font-size:.73rem; color:{MUTED}; }}
+
+/* نمودار */
+.js-plotly-plot, .js-plotly-plot .plot-container {{ direction:ltr !important; }}
+
+/* دکمه‌ها و کنترل‌ها */
+.stButton > button, .stDownloadButton > button {{
+  background:{SURFACE}; color:{INK}; border:1px solid #d9dee4; border-radius:6px;
+  padding:.42rem 1rem; font-family:'Vazirmatn FD',Tahoma,sans-serif !important;
+  font-size:.8rem; font-weight:500; transition:all .15s; box-shadow:none;
+}}
+.stButton > button:hover {{ background:{TINT}; border-color:#c9d0d8; color:{INK}; }}
+.stButton > button:focus:not(:active) {{ border-color:{ACCENT}; color:{ACCENT}; }}
+[data-baseweb="select"] > div {{ border-radius:6px; border-color:#dfe4ea; font-size:.8rem; }}
+[data-baseweb="select"] div {{ direction:rtl !important; }}
+[data-baseweb="tag"] {{ background:{TINT} !important; color:{INK_SOFT} !important;
+  font-size:.73rem !important; border-radius:4px !important; }}
+[data-testid="stMetricLabel"] div {{ font-size:.72rem !important; color:{MUTED} !important; }}
+[data-testid="stMetricValue"] {{ font-size:1.05rem !important; color:{INK} !important; font-weight:600; }}
+[data-testid="stExpander"] {{ border:1px solid {LINE} !important; border-radius:8px !important; }}
+[data-testid="stExpander"] summary {{ font-size:.8rem !important; }}
+.stAlert {{ border-radius:8px; font-size:.8rem; }}
 </style>
 """,
         unsafe_allow_html=True,
     )
 
 
-def style_fig(fig: go.Figure, height: int = 340, margin=None, showlegend: bool = False) -> go.Figure:
-    """استایل مشترک نمودارها؛ margin همیشه از این تابع می‌آید."""
-    m = margin or dict(l=78, r=26, t=44, b=58)
+def style_fig(fig: go.Figure, height: int = 300, margin=None, showlegend: bool = False) -> go.Figure:
+    """استایل یکنواخت نمودارها؛ margin همیشه از این تابع می‌آید."""
+    m = margin or dict(l=72, r=22, t=30, b=52)
     fig.update_layout(
-        height=height,
-        margin=m,
-        paper_bgcolor=SURFACE,
-        plot_bgcolor=SURFACE,
-        font=dict(family="Vazirmatn FD, Tahoma, sans-serif", size=12, color=INK),
+        height=height, margin=m,
+        paper_bgcolor=SURFACE, plot_bgcolor=SURFACE,
+        font=dict(family="Vazirmatn FD, Tahoma, sans-serif", size=11, color=INK_SOFT),
         showlegend=showlegend,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                    bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
-        hoverlabel=dict(font=dict(family="Vazirmatn FD, Tahoma", size=12)),
-        title=dict(font=dict(size=13, color=INK), x=1, xanchor="right"),
+                    bgcolor="rgba(0,0,0,0)", font=dict(size=10)),
+        hoverlabel=dict(font=dict(family="Vazirmatn FD, Tahoma", size=11),
+                        bgcolor="#ffffff", bordercolor=LINE),
+        title=None,
     )
-    fig.update_xaxes(showgrid=False, zeroline=False, tickfont=dict(size=11, color=MUTED),
-                     linecolor="#dfe3e8", automargin=True)
-    fig.update_yaxes(showgrid=True, gridcolor=GRID, zeroline=False,
-                     tickfont=dict(size=11, color=MUTED), automargin=True)
+    fig.update_xaxes(showgrid=False, zeroline=False, linecolor=LINE,
+                     tickfont=dict(size=10, color=MUTED), automargin=True, ticks="")
+    fig.update_yaxes(showgrid=True, gridcolor=HAIRLINE, zeroline=False,
+                     tickfont=dict(size=10, color=MUTED), automargin=True, ticks="")
     return fig
 
 
-# --------------------------------------------------------------------------- داده
+def hbar_rtl(fig: go.Figure, labels_side_right: bool = True) -> go.Figure:
+    """
+    قرارداد راست‌به‌چپ برای میلهٔ افقی: محور مقادیر معکوس (میله از راست رشد می‌کند)
+    و برچسب دسته‌ها در سمت راست. این‌طور برچسب فارسی نه بریده می‌شود و نه
+    برای کاربر فارسی‌زبان غیرطبیعی است.
+    """
+    # میله از راست رشد می‌کند (قرارداد فارسی) و برچسب دسته‌ها در حاشیهٔ آزاد چپ می‌نشیند
+    fig.update_xaxes(autorange="reversed")
+    fig.update_yaxes(side="left", ticklabelposition="outside left",
+                     tickfont=dict(size=10, color=INK_SOFT), ticks="")
+    return fig
+
+
+def axis_hamt(fig: go.Figure) -> go.Figure:
+    fig.update_xaxes(tickformat=",.1f", ticksuffix=" همت")
+    return fig
+
+
+def axis_billion(fig: go.Figure) -> go.Figure:
+    fig.update_xaxes(tickformat=",.0f", ticksuffix=" م‌ریال")
+    fig.update_yaxes(tickformat=",.0f", ticksuffix=" م‌ریال")
+    return fig
+
+
+# ------------------------------------------------------------------ اجزای UI
+def page_head(title: str, lede: str, eyebrow: str = "") -> None:
+    eyebrow_html = f'<div class="eyebrow">{fa_digits(eyebrow)}</div>' if eyebrow else ""
+    st.markdown(
+        f'<div class="page-head">{eyebrow_html}<h1>{title}</h1>'
+        f'<div class="lede">{lede}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def kpis(items: list[tuple]) -> None:
+    """items: [(label, value, hint, kind)] — kind: '' | 'warn'"""
+    cells = []
+    for label, value, hint, kind in items:
+        hint_html = f'<div class="hint">{hint}</div>' if hint else ""
+        cells.append(
+            f'<div class="kpi {kind}"><div class="label">{label}</div>'
+            f'<div class="value">{value}</div>{hint_html}</div>')
+    st.markdown('<div class="kpis">' + "".join(cells) + "</div>", unsafe_allow_html=True)
+
+
+def note(text: str) -> None:
+    st.markdown(f'<div class="note">{text}</div>', unsafe_allow_html=True)
+
+
+def quiet(text: str) -> None:
+    st.markdown(f'<div class="quiet">{text}</div>', unsafe_allow_html=True)
+
+
+def _cell_class(col: str, val) -> str:
+    name = str(col)
+    if any(k in name for k in ("فایل", "ستون", "مؤلفه", "جدول")) or str(val).startswith(("dw.", "stg.", "model/")):
+        return "mono"
+    try:
+        float(str(val).replace("٬", "").replace(",", "").replace("٪", ""))
+        return "num"
+    except (TypeError, ValueError):
+        return ""
+
+
+def rtl_table(df: pd.DataFrame, max_height: int | None = 440,
+              numeric_cols: list[str] | None = None,
+              note_text: str | None = None) -> None:
+    """جدول راست‌چین با HTML (st.dataframe همیشه LTR است)."""
+    import html as _html
+
+    numeric_cols = numeric_cols or []
+    heads = "".join(f"<th>{_html.escape(str(c))}</th>" for c in df.columns)
+    rows = []
+    for _, row in df.iterrows():
+        tds = []
+        for col in df.columns:
+            val = row[col]
+            cls = "num" if str(col) in numeric_cols else _cell_class(col, val)
+            tds.append(f'<td class="{cls}">{_html.escape(str(val))}</td>')
+        rows.append("<tr>" + "".join(tds) + "</tr>")
+    style = f' style="--h:{max_height}px"' if max_height else ""
+    cls = "tbl-scroll" if max_height else ""
+    st.markdown(
+        f'<div class="tbl-wrap"{style}><div class="{cls}"{style}>'
+        f'<table class="rt"><thead><tr>{heads}</tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table></div></div>',
+        unsafe_allow_html=True)
+    if note_text:
+        quiet(_html.escape(note_text))
+
+
+# ------------------------------------------------------------------ داده
 @st.cache_data(show_spinner=False)
 def load_csv(name: str, keep_default_na: bool = True) -> pd.DataFrame:
     return pd.read_csv(DATA_DIR / f"{name}.csv", encoding="utf-8-sig",
@@ -245,7 +383,6 @@ def load_csv(name: str, keep_default_na: bool = True) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def load_db_summary(db_path: str, mtime: float) -> dict:
-    """خلاصهٔ محتوای dw_demo.sqlite (mtime برای بی‌اعتبارسازی کش بعد از ETL)."""
     import sqlite3
 
     con = sqlite3.connect(db_path)
@@ -258,7 +395,8 @@ def load_db_summary(db_path: str, mtime: float) -> dict:
         except Exception:
             out[t] = None
     try:
-        out["_sum_net"] = con.execute("SELECT COALESCE(SUM(net_amount_irr),0) FROM fact_sales").fetchone()[0]
+        out["_sum_net"] = con.execute(
+            "SELECT COALESCE(SUM(net_amount_irr),0) FROM fact_sales").fetchone()[0]
         out["_sum_ret"] = con.execute(
             "SELECT COALESCE(SUM(return_amount_irr),0) FROM fact_returns").fetchone()[0]
         out["_regions"] = con.execute(
@@ -274,52 +412,35 @@ def db_fingerprint() -> float:
     return DB_PATH.stat().st_mtime if DB_PATH.exists() else 0.0
 
 
-def banner(text: str, kind: str = "warn") -> None:
-    st.markdown(f'<div class="banner{"" if kind == "warn" else "-" + kind}">{fa_digits(text)}</div>',
-                unsafe_allow_html=True)
-
-
-# --------------------------------------------------------------------------- سایدبار
+# ------------------------------------------------------------------ سایدبار
 def sidebar() -> str:
     with st.sidebar:
         st.markdown(
-            f"""
-<div style="direction:rtl;text-align:right;padding:2px 0 10px">
-  <div style="font-size:1.02rem;font-weight:700;color:{INK}">🗄️ انبار دادهٔ سازمانی</div>
-  <div style="font-size:.74rem;color:{MUTED};margin-top:3px">
-    پروژهٔ ۵ · SQL Server + DW + Power BI Report Server
-  </div>
-  <div style="font-size:.72rem;color:#8a94a3;margin-top:2px">۱۴۰۵/۰۹/۰۵ · نسخهٔ ۱.۰</div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-        st.markdown('<hr style="margin:4px 0 12px">', unsafe_allow_html=True)
+            '<div class="brand">'
+            '<div class="mark">▦</div>'
+            '<div class="name">انبار دادهٔ فروش</div>'
+            '<div class="sub">SQL Server · DW · Report Server<br>پروژهٔ ۵ — ۱۴۰۵/۰۹/۰۵</div>'
+            '</div>',
+            unsafe_allow_html=True)
         page = st.radio("صفحه", PAGES, index=0, label_visibility="collapsed")
-        st.markdown('<hr style="margin:14px 0 12px">', unsafe_allow_html=True)
         st.markdown(
-            f"""
-<div class="banner" style="font-size:.75rem;margin:0">
-<b>وضعیت زیرساخت:</b> SQL Server، Report Server و SSL نصب/تست نشده‌اند.<br>
-ETL واقعاً اجرا شده؛ خروجی آن یک <b>SQLite جایگزین محلی</b> است.
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="font-size:.7rem;color:#8a94a3;margin-top:10px;line-height:1.7">'
-            'دادهٔ نمونه: seed=۱۴۰۳۰۵۰۵<br>واحد: ریال · تقویم: شمسی<br>'
-            'هیچ داده یا ادعای سازمانی واقعی وجود ندارد.</div>',
-            unsafe_allow_html=True,
-        )
+            '<div class="side-note">'
+            '<span class="side-dot"></span><b>زیرساخت:</b> نصب‌نشده<br>'
+            'ETL: اجراشده · خروجی SQLite محلی<br>'
+            'داده: نمونه (seed ۱۴۰۳۰۵۰۵)<br>'
+            'واحد: ریال · تقویم: شمسی'
+            '</div>',
+            unsafe_allow_html=True)
     return page
 
 
-# --------------------------------------------------------------------------- صفحه ۱
+# ------------------------------------------------------------------ ۱) نمای کلی
 def page_overview() -> None:
-    st.markdown("## نمای کلی انبار داده")
-    banner("این اپ «طرح + اثبات منطق» است: هیچ نصبی روی SQL Server/Report Server انجام نشده و "
-           "اعداد نمایش‌داده‌شده از دادهٔ نمونهٔ seed=۱۴۰۳۰۵۰۵ می‌آیند.")
+    page_head(
+        "نمای کلی",
+        "طرح انبار دادهٔ استاراسکیما برای شبکهٔ داخلی سازمان، با اثبات اجراییِمسیر پاک‌سازی داده.",
+        "پروژهٔ ۵ · راهکار سازمانی",
+    )
 
     summary = load_db_summary(str(DB_PATH), db_fingerprint()) if DB_PATH.exists() else {}
     sales = load_csv("fact_sales")
@@ -327,204 +448,144 @@ def page_overview() -> None:
     ret = summary.get("_sum_ret") or 0
     n_sales = summary.get("fact_sales") or len(sales)
 
-    st.markdown(
-        f"""
-<div class="kpi-grid">
-  <div class="kpi"><div class="label">فروش خالص سال ۱۴۰۳ (نمونه)</div>
-    <div class="value">{fa_humt(net)}</div><div class="hint">Σ net_amount_irr · ریال</div></div>
-  <div class="kpi accent"><div class="label">اسناد فروش</div>
-    <div class="value">{fa_num(n_sales)}</div><div class="hint">fact_sales</div></div>
-  <div class="kpi"><div class="label">مرجوعی</div>
-    <div class="value">{fa_num(summary.get("fact_returns", 2000))}</div>
-    <div class="hint">Σ مرجوعی {fa_humt(ret)}</div></div>
-  <div class="kpi"><div class="label">مناطق / مشتری / کالا</div>
-    <div class="value">{fa_num(12)} / {fa_num(500)} / {fa_num(80)}</div>
-    <div class="hint">ابعاد هم‌شکل (Conformed)</div></div>
-  <div class="kpi accent"><div class="label">ردیف‌های Reject در نمونه</div>
-    <div class="value" style="font-size:1.15rem">هیچ ردیف مردودی ندارد</div>
-    <div class="hint">مسیر Reject کد و جدول دارد؛ نمونه صفر است</div></div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
+    kpis([
+        ("فروش خالص ۱۴۰۳", compact(net), f"{fa_num(n_sales)} سند · نمونه", ""),
+        ("مرجوعی", compact(ret), f"{fa_num(summary.get('fact_returns', 0))} سند", ""),
+        ("ابعاد", f"{fa_num(12)} / {fa_num(500)} / {fa_num(80)}",
+         "منطقه / مشتری / کالا", ""),
+        ("ردیف Reject", "بدون ردیف", "مسیر آماده است", "warn"),
+    ])
 
-    st.markdown("### معماری در یک نگاه")
-    st.markdown(
-        f"""
-<div class="flow">
-  <div class="step"><b>منبع</b>ERP / فروش / CRM</div>
-  <div class="arrow">◀</div>
-  <div class="step"><b>Staging</b>stg.sales_raw</div>
-  <div class="arrow">◀</div>
-  <div class="step hot"><b>پاک‌سازی</b>ETL اجراشده</div>
-  <div class="arrow">◀</div>
-  <div class="step"><b>انبار</b>dw.dim_* / dw.fact_*</div>
-  <div class="arrow">◀</div>
-  <div class="step"><b>ارائه</b>Power BI Report Server</div>
-</div>
-<div class="legend-note">جریان از راست (منبع) به چپ (گزارش) خوانده می‌شود؛ همهٔ مؤلفه‌ها درون شبکهٔ داخلی.</div>
-""",
-        unsafe_allow_html=True,
-    )
+    st.markdown("## جریان داده")
+    steps = [("منابع", "ERP · CRM · مرجوعی"), ("Staging", "stg.sales_raw"),
+             ("پاک‌سازی", "ETL اجراشده"), ("انبار", "dw.dim_* · dw.fact_*"),
+             ("ارائه", "Report Server")]
+    chips = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 2px">'
+    for i, (t, d) in enumerate(steps):
+        if i:
+            chips += f'<span style="color:#c3cad2;font-size:.8rem">‹</span>'
+        bg = TINT if i != 2 else "#f7efed"
+        col = INK_SOFT if i != 2 else ACCENT
+        chips += (f'<span style="background:{bg};color:{col};border:1px solid {LINE};'
+                  f'border-radius:18px;padding:5px 13px;font-size:.74rem;line-height:1.6">'
+                  f'{t}<span style="color:{FAINT};margin-inline-start:6px">{d}</span></span>')
+    chips += "</div>"
+    st.markdown(chips, unsafe_allow_html=True)
+    quiet("همهٔ لایه‌ها درون شبکهٔ داخلی؛ هیچ مؤلفهٔ ابری لازم نیست.")
 
-    st.markdown("### نمودار مدل ستاره‌ای")
+    st.markdown("## مدل داده")
     if DIAGRAM.exists():
         st.image(str(DIAGRAM), width="stretch")
-    else:
-        st.info("فایل assets/model_diagram.svg موجود نیست.")
 
-    c1, c2 = st.columns([1.25, 1])
-    with c1:
-        st.markdown("### جدول‌های مدل")
-        rows = [
-            ("dim_date", "۳۶۶", "تقویم شمسی + میلادی + فصل", "بُعد"),
-            ("dim_region", "۱۲", "منطقه و پهنه", "بُعد"),
-            ("dim_customer", "۵۰۰", "حقیقی/حقوقی + کانال", "بُعد"),
-            ("dim_product", "۸۰", "کالا + دسته + قیمت", "بُعد"),
-            ("fact_sales", "۳۰٬۰۰۰", "یک سطر = یک قلم فروش", "فکت"),
-            ("fact_returns", "۲٬۰۰۰", "ارجاع به sale_id", "فکت"),
-            ("etl_reject", "۰ (در نمونه)", "پایش کیفیت ورودی", "کنترل"),
-            ("etl_load_log", "به‌ازای هر بار", "ثبت هر بار ETL", "کنترل"),
-        ]
-        st.dataframe(
-            pd.DataFrame(rows, columns=["جدول", "ردیف نمونه", "نقش", "نوع"]),
-            hide_index=True, width="stretch", height=326,
-        )
-        st.markdown(
-            '<div class="legend-note">هر بعد به فکت با رابطهٔ یک‌به‌چند وصل است؛ '
-            'کلید تاریخ = YYYYMMDD شمسی.</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown("## جدول‌ها")
+    rows = [
+        ("dim_date", "۳۶۶", "تقویم شمسی + میلادی", "بُعد"),
+        ("dim_region", "۱۲", "منطقه و پهنه", "بُعد"),
+        ("dim_customer", "۵۰۰", "حقیقی/حقوقی + کانال", "بُعد"),
+        ("dim_product", "۸۰", "کالا، دسته، قیمت", "بُعد"),
+        ("fact_sales", "۳۰٬۰۰۰", "یک سطر = یک قلم فروش", "فکت"),
+        ("fact_returns", "۲٬۰۰۰", "ارجاع به sale_id", "فکت"),
+        ("etl_reject", "۰", "پایش کیفیت ورودی", "کنترل"),
+        ("etl_load_log", "هر بار", "ثبت هر اجرای ETL", "کنترل"),
+    ]
+    rtl_table(pd.DataFrame(rows, columns=["جدول", "ردیف", "محتوا", "نوع"]),
+              max_height=330, numeric_cols=["ردیف"])
 
-    st.markdown("### سه ادعا که این پروژه <span style='color:#d64541'>نمی‌کند</span>",
-                unsafe_allow_html=True)
-    a1, a2, a3 = st.columns(3)
-    for col, icon, title, body in [
-        (a1, "⛔", "«Report Server نصب شد»", "نصب، لایسنس و انتشار سازمانی انجام نشده؛ مرحلهٔ ۳ چک‌لیست است."),
-        (a2, "⛔", "«این اعداد فروش واقعی است»", "داده نمونه و قابل بازتولید با seed است؛ کنترل توازن انجام شده ولی منبع سازمانی نیست."),
-        (a3, "⛔", "«RLS تست شد»", "RLS منطقه‌ای فقط مستند است؛ نه Security Policy ساخته شده نه View-as تست شده."),
-    ]:
-        with col:
-            st.markdown(
-                f"""<div class="kpi" style="border-top-color:{ACCENT};min-height:132px">
-                <div class="label" style="color:{ACCENT};font-weight:700">{icon} {title}</div>
-                <div style="font-size:.8rem;color:{MUTED};line-height:1.8;margin-top:6px">{body}</div>
-                </div>""",
-                unsafe_allow_html=True,
-            )
+    st.markdown("## آنچه ادعا نمی‌شود")
+    note("Report Server نصب و لایسنس نشده است · این اعداد فروش واقعی نیستند · "
+         "RLS منطقه‌ای فقط مستند است و تست نشده.")
 
 
-# --------------------------------------------------------------------------- صفحه ۲
+# ------------------------------------------------------------------ ۲) ETL
 def page_etl() -> None:
-    st.markdown("## پایپ‌لاین زندهٔ ETL")
-    banner("دکمهٔ زیر اسکریپت واقعی model/etl_staging_to_dw.py را با subprocess اجرا می‌کند و خروجی آن را "
-           "همان‌طور که هست نشان می‌دهد. خروجی به SQLite محلی نوشته می‌شود — نه به SQL Server.")
+    page_head("پایپ‌لاین ETL",
+              "دکمهٔ زیر اسکریپت واقعی را اجرا می‌کند و خروجی آن را همان‌طور که هست نشان می‌دهد؛ "
+              "نتیجه در SQLite محلی ذخیره می‌شود.",
+              "اثبات اجرایی")
 
     stg = load_csv("stg_sales_raw", keep_default_na=False)
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("ردیف ورودی خام", fa_num(len(stg)))
-    c2.metric("فرمت تاریخ مخلوط", "۴ نوع")
-    c3.metric("کامای هزارگان", fa_num(int(stg["unit_price_raw"].astype(str).str.contains(",").sum())))
-    c4.metric("تخفیف خالی", fa_num(int((stg["discount_raw"].astype(str).str.strip() == "").sum())))
+    kpis([
+        ("ردیف ورودی", fa_num(len(stg)), "stg_sales_raw.csv", ""),
+        ("فرمت تاریخ", "۴ نوع", "شمسی و میلادی", ""),
+        ("کاما هزارگان", fa_num(int(stg["unit_price_raw"].astype(str).str.contains(",").sum())),
+         "ردیف", ""),
+        ("تخفیف خالی", fa_num(int((stg["discount_raw"].astype(str).str.strip() == "").sum())),
+         "ردیف", ""),
+    ])
 
-    st.markdown("### نمونهٔ ردیف‌های «عمداً کثیف» ورودی")
-    show = stg.head(8)[["row_id", "sale_date_raw", "customer_name_raw", "region_id_raw",
+    st.markdown("## ورودی خام")
+    show = stg.head(6)[["row_id", "sale_date_raw", "customer_name_raw", "region_id_raw",
                         "quantity_raw", "unit_price_raw", "discount_raw"]].copy()
-    show.columns = ["ردیف", "تاریخ خام", "نام مشتری (خام)", "منطقه", "تعداد", "مبلغ واحد", "تخفیف"]
-    st.dataframe(show, hide_index=True, width="stretch", height=310)
+    show.columns = ["#", "تاریخ", "مشتری", "منطقه", "تعداد", "مبلغ واحد", "تخفیف"]
+    rtl_table(show, max_height=None, numeric_cols=["#", "تعداد", "مبلغ واحد", "تخفیف"])
 
-    st.markdown("### اجرای واقعی ETL")
-    b1, b2, b3 = st.columns([1.1, 1.1, 2.4])
-    run = b1.button("▶ اجرای ETL روی staging", width="stretch")
-    if b2.button("↺ بازخوانی وضعیت پایگاه‌داده", width="stretch"):
+    st.markdown("## اجرا")
+    c1, c2, _ = st.columns([1, 1, 2.2])
+    run = c1.button("اجرای ETL", width="stretch")
+    if c2.button("بازخوانی", width="stretch"):
         st.cache_data.clear()
         st.rerun()
-    b3.markdown('<div class="legend-note" style="padding-top:10px">معادل SQL Server: SSIS یا '
-                'Stored Procedure؛ منطق پاک‌سازی یکسان است. اجرا حدوداً ۱ ثانیه طول می‌کشد.</div>',
-                unsafe_allow_html=True)
-    if True:
-        if run:
-            with st.spinner("در حال اجرا…"):
-                try:
-                    cp = subprocess.run(
-                        [sys.executable, str(ETL_SCRIPT)],
-                        cwd=str(BASE_DIR), capture_output=True, text=True, timeout=240,
-                    )
-                    out = (cp.stdout or "") + (("\n[stderr]\n" + cp.stderr) if cp.stderr.strip() else "")
-                    st.session_state["etl_out"] = out
-                    st.session_state["etl_rc"] = cp.returncode
-                    st.cache_data.clear()
-                except subprocess.TimeoutExpired:
-                    st.session_state["etl_out"] = "⏱ اجرا بیش از ۲۴۰ ثانیه طول کشید و متوقف شد."
-                    st.session_state["etl_rc"] = -1
-        out = st.session_state.get("etl_out")
-        rc = st.session_state.get("etl_rc")
-        if out:
-            kind = "ok" if rc == 0 else "bad"
-            label = "اجرا موفق (کد خروج ۰)" if rc == 0 else f"اجرا با خطا (کد خروج {fa_digits(rc)})"
-            st.markdown(f'<div class="banner-{kind}">✅ {label} — این خروجی متنیِ همان اجراست.</div>',
-                        unsafe_allow_html=True)
-            st.code(out, language="text")
-        else:
-            st.markdown(
-                '<div class="banner">هنوز در این نشست اجرا نشده است. دکمهٔ «اجرای ETL» را بزنید؛ '
-                'اجرای اصلی در ساخت پروژه انجام و لاگ آن در VALIDATION.md ثبت شده است.</div>',
-                unsafe_allow_html=True)
 
-    st.markdown("### محتوای dw_demo.sqlite (جایگزین محلی)")
+    if run:
+        with st.spinner("در حال اجرا…"):
+            try:
+                cp = subprocess.run([sys.executable, str(ETL_SCRIPT)], cwd=str(BASE_DIR),
+                                    capture_output=True, text=True, timeout=240)
+                out = (cp.stdout or "")
+                if cp.stderr.strip():
+                    out += "\n[stderr]\n" + cp.stderr
+                st.session_state["etl_out"] = out
+                st.session_state["etl_rc"] = cp.returncode
+                st.cache_data.clear()
+            except subprocess.TimeoutExpired:
+                st.session_state["etl_out"] = "اجرا بیش از ۲۴۰ ثانیه طول کشید و متوقف شد."
+                st.session_state["etl_rc"] = -1
+
+    out = st.session_state.get("etl_out")
+    rc = st.session_state.get("etl_rc")
+    if out:
+        if rc == 0:
+            note("اجرا با موفقیت تمام شد — این خروجی متنیِ همان اجراست.")
+        else:
+            note(f"اجرا با خطا تمام شد (کد {fa_digits(rc)}).")
+        st.code(out, language="text")
+    else:
+        quiet("هنوز در این نشست اجرا نشده است. لاگ اجرای ساخت پروژه در VALIDATION.md ثبت شده.")
+
+    st.markdown("## محتوای پایگاه‌داده")
     if DB_PATH.exists():
         summary = load_db_summary(str(DB_PATH), db_fingerprint())
-        order = ["dim_date", "dim_region", "dim_customer", "dim_product",
-                 "fact_sales", "fact_returns", "etl_reject", "etl_load_log", "stg_sales_cleaned"]
+        order = ["dim_date", "dim_region", "dim_customer", "dim_product", "fact_sales",
+                 "fact_returns", "etl_reject", "etl_load_log", "stg_sales_cleaned"]
         rows = [(t, summary.get(t)) for t in order if t in summary]
-        rows += [(t, v) for t, v in summary.items()
-                 if not t.startswith("_") and t not in order]
-        df = pd.DataFrame([{"جدول": t, "تعداد ردیف": fa_num(v) if v is not None else "—"}
+        df = pd.DataFrame([{"جدول": t, "ردیف": fa_num(v) if v is not None else "—"}
                            for t, v in rows])
-        c1, c2 = st.columns([1.45, 1])
+        c1, c2 = st.columns([1.35, 1])
         with c1:
-            st.dataframe(df, hide_index=True, width="stretch", height=456)
+            rtl_table(df, max_height=340, numeric_cols=["ردیف"])
         with c2:
-            st.markdown(
-                f"""
-<div class="kpi-grid" style="grid-template-columns:1fr">
-  <div class="kpi"><div class="label">Σ net_amount_irr</div>
-    <div class="value">{fa_humt(summary.get("_sum_net", 0))}</div>
-    <div class="hint">{fa_num(summary.get("_sum_net", 0))} ریال</div></div>
-  <div class="kpi accent"><div class="label">مناطق متمایز در فکت</div>
-    <div class="value">{fa_num(summary.get("_regions", 0))}</div><div class="hint">از ۱۲ منطقه</div></div>
-  <div class="kpi"><div class="label">ردیف‌های Reject پس از این اجرا</div>
-    <div class="value" style="font-size:1.1rem">بدون ردیف مردودی</div>
-    <div class="hint">etl_reject خالی است</div></div>
-</div>
-""", unsafe_allow_html=True)
-        # مقدارها قبل از ساخت رشته حساب می‌شوند تا f-string ساده و تک‌خطی بماند
-        # (اجرای چندخطی داخل {} فقط روی پایتون ۳٫۱۲+ مجاز است)
-        stamp = pd.Timestamp(DB_PATH.stat().st_mtime, unit="s", tz="UTC")
-        stamp_fa = fa_digits(stamp.tz_convert("Asia/Tehran").strftime("%Y/%m/%d %H:%M"))
-        st.markdown(
-            '<div class="legend-note">فایل: model/dw_demo.sqlite · '
-            f'آخرین بازنویسی: {stamp_fa}</div>',
-            unsafe_allow_html=True)
+            kpis([
+                ("جمع فروش", compact(summary.get("_sum_net", 0)), "ریال", ""),
+                ("مناطق", fa_num(summary.get("_regions", 0)), "از ۱۲", ""),
+                ("Reject", "بدون ردیف", "etl_reject خالی", "warn"),
+            ])
+            stamp = pd.Timestamp(DB_PATH.stat().st_mtime, unit="s", tz="UTC")
+            stamp_fa = fa_digits(stamp.tz_convert("Asia/Tehran").strftime("%Y/%m/%d %H:%M"))
+            quiet(f"آخرین نوشتن فایل: {stamp_fa}")
     else:
-        st.markdown('<div class="banner-bad">dw_demo.sqlite موجود نیست؛ ابتدا ETL را اجرا کنید.</div>',
-                    unsafe_allow_html=True)
+        note("dw_demo.sqlite موجود نیست؛ ابتدا ETL را اجرا کنید.")
 
-    st.markdown("### نمایش جریان Reject")
-    st.markdown(
-        """
-<div class="banner">در نمونهٔ فعلی <b>۰ ردیف Reject</b> است، چون هر چهار فرمت تاریخ قابل تبدیل‌اند.
-برای دیدن جریان Reject، ردیف‌هایی مثل تاریخ <code>1403/13/45</code>، مبلغ <code>abc</code> یا
-منطقهٔ <code>R99</code> را به <code>data/stg_sales_raw.csv</code> تزریق کنید؛ کد مسیر
-<code>dw.etl_reject</code> آماده است و تست جداگانه دارد.</div>
-""", unsafe_allow_html=True)
+    st.markdown("## مسیر Reject")
+    quiet("در این نمونه صفر ردیف مردود است، چون هر چهار فرمت تاریخ قابل تبدیل‌اند. "
+          "برای دیدن مسیر، ردیفی با تاریخ ۱۴۰۳/۱۳/۴۵ یا مبلغ abc یا منطقهٔ R99 به فایل "
+          "staging اضافه کنید.")
 
 
-# --------------------------------------------------------------------------- صفحه ۳
+# ------------------------------------------------------------------ ۳) تحلیل فروش
 def page_sales() -> None:
-    st.markdown("## تحلیل فروش نمونه")
-    banner("همهٔ نمودارها از دادهٔ نمونهٔ seed=۱۴۰۳۰۵۰۵ ساخته شده‌اند (نه فروش واقعی). "
-           "تقویم شمسی، واحد ریال.")
+    page_head("تحلیل فروش",
+              "نمودارها از دادهٔ نمونه ساخته شده‌اند؛ واحد ریال و تقویم شمسی است.",
+              "دادهٔ نمونه")
 
     sales = load_csv("fact_sales")
     returns = load_csv("fact_returns")
@@ -533,12 +594,11 @@ def page_sales() -> None:
     dim_product = load_csv("dim_product")
 
     regions = dim_region.set_index("region_id")["region_name_fa"].to_dict()
-    picked = st.multiselect(
-        "فیلتر منطقه", options=list(regions.keys()),
-        format_func=lambda r: f"{regions[r]}",
-        default=[],
-        placeholder="همهٔ مناطق",
-    )
+    filter_col, _ = st.columns([1, 2.4])
+    with filter_col:
+        picked = st.multiselect("منطقه", options=list(regions.keys()),
+                                format_func=lambda r: regions[r], default=[],
+                                placeholder="همهٔ مناطق")
     if picked:
         sales_f = sales[sales["region_id"].isin(picked)]
         returns_f = returns[returns["region_id"].isin(picked)]
@@ -547,279 +607,230 @@ def page_sales() -> None:
 
     net = int(sales_f["net_amount_irr"].sum())
     ret_amt = int(returns_f["return_amount_irr"].sum())
-    qty = int(sales_f["quantity"].sum())
     margin = (net - int(sales_f["cost_amount_irr"].sum())) / net if net else 0
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("فروش خالص", fa_humt(net))
-    c2.metric("تعداد", fa_num(qty))
-    c3.metric("حاشیهٔ سود", fa_digits(f"{margin * 100:.1f}") + "٪")
-    c4.metric("نرخ مرجوعی", fa_digits(f"{ret_amt / net * 100:.2f}") + "٪" if net else "—")
+    kpis([
+        ("فروش خالص", compact(net), "ریال", ""),
+        ("تعداد", fa_num(int(sales_f["quantity"].sum())), "قلم", ""),
+        ("حاشیهٔ سود", fa_digits(f"{margin * 100:.1f}") + "٪", "", ""),
+        ("نرخ مرجوعی", fa_digits(f"{ret_amt / net * 100:.2f}") + "٪" if net else "—", "", ""),
+    ])
 
     merged = sales_f.merge(dim_date[["date_key", "month", "month_name_fa"]], on="date_key")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("## روند ماهانه")
+        m = (merged.groupby(["month", "month_name_fa"], as_index=False)["net_amount_irr"]
+             .sum().sort_values("month"))
+        fig = go.Figure(go.Scatter(
+            x=m["month_name_fa"], y=m["net_amount_irr"] / 1e12, mode="lines",
+            line=dict(color=ACCENT, width=2, shape="spline"),
+            customdata=m["net_amount_irr"],
+            hovertemplate="%{x}<br>%{customdata:,.0f} ریال<extra></extra>",
+            fill="tozeroy", fillcolor="rgba(156,74,60,0.06)"))
+        peak = float(m["net_amount_irr"].max()) / 1e12
+        fig.update_yaxes(tickformat=",.1f", ticksuffix=" همت",
+                         range=[0, peak * 1.14])
+        style_fig(fig, height=290, margin=dict(l=64, r=18, t=18, b=52))
+        fig.update_xaxes(tickmode="array", tickvals=list(m["month_name_fa"][::2]),
+                         tickangle=0, tickfont=dict(size=9.5))
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False, "locale": "fa"})
+
+    with c2:
+        st.markdown("## فروش منطقه‌ای")
+        r = (sales_f.groupby("region_id", as_index=False)["net_amount_irr"].sum()
+             .merge(dim_region[["region_id", "region_name_fa"]], on="region_id")
+             .sort_values("net_amount_irr"))
+        fig = go.Figure(go.Bar(
+            x=r["net_amount_irr"] / 1e12, y=r["region_name_fa"], orientation="h",
+            marker=dict(color=ACCENT_2, opacity=.82, line=dict(width=0)),
+            text=[f"{v / 1e12:,.2f}" for v in r["net_amount_irr"]],
+            textposition="inside", insidetextanchor="end",
+            textfont=dict(size=9.5, color="#ffffff"),
+            cliponaxis=False, customdata=r["net_amount_irr"],
+            hovertemplate="%{y}<br>%{customdata:,.0f} ریال<extra></extra>"))
+        axis_hamt(fig)
+        style_fig(fig, height=290, margin=dict(l=88, r=16, t=18, b=42))
+        hbar_rtl(fig)
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False, "locale": "fa"})
 
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("### روند فروش ماهانه (شمسی)")
-        m = (merged.groupby(["month", "month_name_fa"], as_index=False)["net_amount_irr"].sum()
-             .sort_values("month"))
-        fig = go.Figure(go.Scatter(
-            x=m["month_name_fa"], y=m["net_amount_irr"] / 1e12, mode="lines+markers",
-            line=dict(color=INK, width=2.4, shape="spline"),
-            marker=dict(size=7, color=INK),
-            customdata=m["net_amount_irr"],
-            hovertemplate="%{x}<br>%{customdata:,.0f} ریال<extra></extra>",
-            fill="tozeroy", fillcolor="rgba(35,43,54,0.06)", name="فروش",
-        ))
-        fig.update_yaxes(tickformat=",.1f", ticksuffix=" همت", rangemode="tozero")
-        style_fig(fig, height=350, margin=dict(l=74, r=26, t=44, b=74))
-        fig.update_xaxes(tickangle=-32, tickfont=dict(size=10.5, color=MUTED))
-        st.plotly_chart(fig, width="stretch",
-                        config={"displayModeBar": False, "locale": "fa"})
-
-    with c2:
-        st.markdown("### فروش به تفکیک منطقه")
-        r = (sales_f.groupby("region_id", as_index=False)["net_amount_irr"].sum()
-             .merge(dim_region[["region_id", "region_name_fa"]], on="region_id")
-             .sort_values("net_amount_irr", ascending=True))
-        fig = go.Figure(go.Bar(
-            x=r["net_amount_irr"] / 1e12, y=r["region_name_fa"], orientation="h",
-            marker=dict(color=[ACCENT if i >= len(r) - 3 else INK for i in range(len(r))],
-                        line=dict(width=0)),
-            text=[f"{v / 1e12:,.2f} همت" for v in r["net_amount_irr"]],
-            textposition="outside", cliponaxis=False,
-            customdata=r["net_amount_irr"],
-            hovertemplate="%{y}<br>%{customdata:,.0f} ریال<extra></extra>",
-        ))
-        axis_hamt(fig)
-        fig.update_yaxes(tickfont=dict(size=11, color=INK))
-        style_fig(fig, height=350, margin=dict(l=84, r=88, t=44, b=52))
-        st.plotly_chart(fig, width="stretch",
-                        config={"displayModeBar": False, "locale": "fa"})
-
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        st.markdown("### ترکیب دستهٔ کالا")
+        st.markdown("## دستهٔ کالا")
         cat = (sales_f.merge(dim_product[["product_id", "category_name_fa"]], on="product_id")
                .groupby("category_name_fa", as_index=False)["net_amount_irr"].sum()
                .sort_values("net_amount_irr", ascending=False))
         fig = go.Figure(go.Bar(
             x=cat["category_name_fa"], y=cat["net_amount_irr"] / 1e12,
-            marker=dict(color=[INK, "#3d4b5c", "#5b6b7d", "#8a94a3", "#b9c0c9", ACCENT][:len(cat)]),
-            text=[f"{v / 1e12:,.1f} همت" for v in cat["net_amount_irr"]],
-            textposition="outside", cliponaxis=False,
-            customdata=cat["net_amount_irr"],
-            hovertemplate="%{x}<br>%{customdata:,.0f} ریال<extra></extra>",
-        ))
+            marker=dict(color=[INK_SOFT] * len(cat), opacity=.78, line=dict(width=0)),
+            text=[f"{v / 1e12:,.1f}" for v in cat["net_amount_irr"]],
+            textposition="outside", textfont=dict(size=9.5, color=MUTED),
+            cliponaxis=False, customdata=cat["net_amount_irr"],
+            hovertemplate="%{x}<br>%{customdata:,.0f} ریال<extra></extra>"))
         fig.update_yaxes(tickformat=",.1f", ticksuffix=" همت")
-        style_fig(fig, height=330, margin=dict(l=74, r=26, t=44, b=78))
-        st.plotly_chart(fig, width="stretch",
-                        config={"displayModeBar": False, "locale": "fa"})
+        top_cat = float(cat["net_amount_irr"].max()) / 1e12
+        fig.update_yaxes(range=[0, top_cat * 1.18])
+        style_fig(fig, height=280, margin=dict(l=62, r=16, t=22, b=70))
+        fig.update_xaxes(tickfont=dict(size=9.5))
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False, "locale": "fa"})
 
     with c2:
-        st.markdown("### نرخ مرجوعی به تفکیک علت")
+        st.markdown("## علت مرجوعی")
         rr = (returns_f.groupby("reason_fa", as_index=False)["return_amount_irr"].sum()
-              .sort_values("return_amount_irr", ascending=True))
+              .sort_values("return_amount_irr"))
         fig = go.Figure(go.Bar(
             x=rr["return_amount_irr"] / 1e9, y=rr["reason_fa"], orientation="h",
-            marker=dict(color=ACCENT, opacity=.85, line=dict(width=0)),
-            text=[f"{v / 1e9:,.0f} م.ریال" for v in rr["return_amount_irr"]],
-            textposition="outside", cliponaxis=False,
-            customdata=rr["return_amount_irr"],
-            hovertemplate="%{y}<br>%{customdata:,.0f} ریال<extra></extra>",
-        ))
+            marker=dict(color=ACCENT, opacity=.62, line=dict(width=0)),
+            text=[f"{v / 1e9:,.0f}" for v in rr["return_amount_irr"]],
+            textposition="inside", insidetextanchor="end",
+            textfont=dict(size=9.5, color="#ffffff"),
+            cliponaxis=False, customdata=rr["return_amount_irr"],
+            hovertemplate="%{y}<br>%{customdata:,.0f} ریال<extra></extra>"))
         axis_billion(fig)
-        style_fig(fig, height=330, margin=dict(l=110, r=82, t=44, b=52))
-        st.plotly_chart(fig, width="stretch",
-                        config={"displayModeBar": False, "locale": "fa"})
+        style_fig(fig, height=280, margin=dict(l=118, r=16, t=18, b=42))
+        hbar_rtl(fig)
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False, "locale": "fa"})
 
-    st.markdown("### ۱۰ کالای پرفروش")
+    st.markdown("## ۱۰ کالای پرفروش")
     top = (sales_f.groupby("product_id", as_index=False)
-           .agg(فروش_ریال=("net_amount_irr", "sum"), تعداد=("quantity", "sum"),
+           .agg(فروش=("net_amount_irr", "sum"), تعداد=("quantity", "sum"),
                 اسناد=("sale_id", "count"))
            .merge(dim_product[["product_id", "product_name_fa", "category_name_fa"]], on="product_id")
-           .sort_values("فروش_ریال", ascending=False).head(10))
-    top_out = pd.DataFrame({
+           .sort_values("فروش", ascending=False).head(10))
+    out = pd.DataFrame({
         "کالا": top["product_name_fa"],
         "دسته": top["category_name_fa"],
         "تعداد": top["تعداد"].map(fa_num),
         "اسناد": top["اسناد"].map(fa_num),
-        "فروش خالص (ریال)": top["فروش_ریال"].map(lambda v: fa_num(v)),
+        "فروش (ریال)": top["فروش"].map(fa_num),
     })
-    st.dataframe(top_out, hide_index=True, width="stretch", height=418)
-    st.markdown('<div class="legend-note">جدول‌ها از fact_sales + dim_product ساخته شده‌اند؛ '
-                'مرتب‌سازی بر پایهٔ فروش خالص.</div>', unsafe_allow_html=True)
+    rtl_table(out, max_height=400, numeric_cols=["تعداد", "اسناد", "فروش (ریال)"])
 
 
-# --------------------------------------------------------------------------- صفحه ۴
+# ------------------------------------------------------------------ ۴) استقرار
 def page_deploy() -> None:
-    st.markdown("## استقرار و معماری")
-    banner("این صفحه <b>راهنمای استقرار</b> است، نه گزارش انجام آن. هیچ‌یک از مراحل نصب در این "
-           "پروژه اجرا نشده است.")
+    page_head("استقرار",
+              "راهنمای اجرا در محیط سازمان. هیچ‌یک از این مراحل در این پروژه انجام نشده است.",
+              "طرح و چک‌لیست")
 
-    c1, c2 = st.columns([1.25, 1])
-    with c1:
-        st.markdown("### معماری هدف — بدون ابر")
-        layers = [
-            ("منبع", "ERP / CRM / سیستم مرجوعی", "extraction: file or CDC", False),
-            ("Staging", "stg.sales_raw — دادهٔ خام با load_batch_id", "no transformation", False),
-            ("پاک‌سازی", "SSIS یا Python — همین منطق ETL", "normalize · reject · log", True),
-            ("انبار داده", "dw.dim_* و dw.fact_* — استاراسکیما", "FK · index · CHECK", False),
-            ("معنایی", "مدل Power BI (Import mode) و سنجه‌های DAX", "refresh scheduled", False),
-            ("ارائه", "Power BI Report Server داخلی + HTTPS", "portal · AD auth", True),
-        ]
-        rows = []
-        for k, (title, desc, en, hot) in enumerate(layers):
-            if k:
-                rows.append('<div class="gap">▼</div>')
-            rows.append(
-                f'<div class="layer{" accent" if hot else ""}">'
-                f'<span class="t">{title} — {desc}</span>'
-                f'<span class="d">{en}</span></div>')
-        st.markdown('<div class="arch">' + "".join(rows) + "</div>", unsafe_allow_html=True)
-        st.markdown('<div class="legend-note">همهٔ لایه‌ها درون شبکهٔ داخلی؛ هیچ مؤلفهٔ ابری لازم نیست. '
-                    'از بالا به پایین: منبع ← گزارش.</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown("### وضعیت واقعی اجزا")
-        status = pd.DataFrame([
-            ("DDL T-SQL (schema.sql)", "نوشته و بازبینی منطقی", "⚠️ روی سرور اجرا نشده"),
-            ("ETL (Python)", "اجرا شد ✅", "✅ ۳۰۰/۳۰۰ تمیز"),
-            ("انبار داده", "SQLite جایگزین محلی", "⚠️ نه SQL Server"),
-            ("RSLS منطقه‌ای", "طراحی داکیومنت", "⚠️ پیاده/تست نشده"),
-            ("Report Server", "فقط راهنما", "⛔ نصب/لایسنس نشده"),
-            ("گزارش (.pbix)", "ساخت‌نشده", "⛔ وجود ندارد"),
-            ("SSL / DNS داخلی", "فقط چک‌لیست", "⛔ تست نشده"),
-            ("UAT / تست بار", "—", "⛔ انجام نشده"),
-        ], columns=["مؤلفه", "وضعیت در پروژه", "پذیرش"])
-        st.dataframe(status, hide_index=True, width="stretch", height=330)
+    st.markdown("## وضعیت اجزا")
+    status = pd.DataFrame([
+        ("DDL (schema.sql)", "نوشته و بازبینی منطقی", "روی سرور اجرا نشده"),
+        ("ETL (Python)", "اجرا شد", "۳۰۰ / ۳۰۰ تمیز"),
+        ("انبار داده", "SQLite محلی", "نه SQL Server"),
+        ("RLS منطقه‌ای", "طراحی مستند", "پیاده/تست نشده"),
+        ("Report Server", "راهنما", "نصب/لایسنس نشده"),
+        ("گزارش .pbix", "—", "وجود ندارد"),
+        ("SSL / DNS داخلی", "چک‌لیست", "تست نشده"),
+    ], columns=["مؤلفه", "وضعیت در پروژه", "پذیرش"])
+    rtl_table(status, max_height=None)
 
-    st.markdown("### مراحل استقرار (خلاصهٔ چک‌لیست)")
+    st.markdown("## معماری هدف")
+    layers = [
+        ("منابع", "ERP، CRM و سیستم مرجوعی", "extract / CDC"),
+        ("Staging", "جدول ورودی خام با شناسهٔ بستهٔ بار", "no transform"),
+        ("پاک‌سازی", "SSIS یا Python با همین منطق", "reject · log"),
+        ("انبار داده", "ابعاد و فکت‌های استاراسکیما", "FK · index · check"),
+        ("ارائه", "Power BI Report Server داخلی", "HTTPS · AD auth"),
+    ]
+    rows = []
+    for t, d, m in layers:
+        rows.append(
+            f'<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+            f'gap:16px;padding:9px 14px;background:{SURFACE};border:1px solid {LINE};'
+            f'border-radius:7px;margin-bottom:5px">'
+            f'<div style="min-width:0">'
+            f'<div style="font-size:.8rem;color:{INK}">{t}</div>'
+            f'<div style="font-size:.72rem;color:{FAINT};margin-top:2px">{d}</div></div>'
+            f'<div style="font-size:.7rem;color:{MUTED};white-space:nowrap;'
+            f'direction:ltr;text-align:left;padding-top:2px">{m}</div></div>')
+    st.markdown("".join(rows), unsafe_allow_html=True)
+
+    st.markdown("## مراحل")
     steps = pd.DataFrame([
-        ("۰", "تأیید شرح خدمات، لایسنس SQL Server و Report Server، گروه‌های AD", "کارفرما + IT"),
-        ("۱", "ساخت VM، نصب SQL Server با کالیشن فارسی، بکاپ و بازگردانی", "DBA"),
-        ("۲", "DBA Review روی schema.sql → اجرا در Test → ETL → کنترل کیفیت", "DBA + تیم داده"),
-        ("۳", "نصب Report Server، ReportServer DB، HTTPS، DNS، .pbix، Publish", "زیرساخت + BI"),
-        ("۴", "RLS + View-as، توازن با مبدأ، تست بار، UAT، آموزش، Run Book", "BI + مالی + کارفرما"),
-    ], columns=["مرحله", "کارهای کلیدی", "مسئول"])
-    st.dataframe(steps, hide_index=True, width="stretch", height=250)
-    st.markdown('<div class="legend-note">جزئیات کامل با پیش‌نیاز و ریسک: '
-                'report/DEPLOYMENT_CHECKLIST.md</div>', unsafe_allow_html=True)
+        ("۰", "تأیید شرح خدمات، لایسنس SQL Server و Report Server، گروه‌های AD", "کارفرما · IT"),
+        ("۱", "VM، نصب SQL Server با کالیشن فارسی، بکاپ و بازگردانی", "DBA"),
+        ("۲", "بازبینی schema.sql، اجرا در Test، ETL، کنترل کیفیت", "DBA · داده"),
+        ("۳", "نصب Report Server، HTTPS، DNS، ساخت .pbix، انتشار", "زیرساخت · BI"),
+        ("۴", "RLS و View-as، توازن با مبدأ، تست بار، UAT، آموزش", "BI · مالی"),
+    ], columns=["مرحله", "کارها", "مسئول"])
+    rtl_table(steps, max_height=None, numeric_cols=["مرحله"])
+    quiet("جزئیات کامل با پیش‌نیاز و ریسک در report/DEPLOYMENT_CHECKLIST.md")
 
-    st.markdown("### تصمیم‌های فنی و هزینه‌شان")
+    st.markdown("## تصمیم‌ها")
     dec = pd.DataFrame([
-        ("تقویم شمسی به‌عنوان کلید تاریخ", "الزام گزارش فارسی", "نیاز به ستون میلادی موازی — فراهم شد"),
-        ("Import mode در Power BI", "کارایی و استقرار سادهٔ داخلی", "نیاز به Refresh زمان‌بندی‌شده"),
-        ("Reject در DW نه در فایل", "قابل گزارش و پیگیری", "نگهداشت و آرشیو دوره‌ای لازم"),
-        ("SQLite برای اثبات منطق", "اجرای واقعی و تکرارپذیر بدون زیرساخت", "بدون Columnstore/پارتیشن/آمار"),
-        ("RLS فقط مستند", "نبود محیط AD و Report Server", "قبل از انتشار الزاماً پیاده و تست شود"),
-    ], columns=["تصمیم", "دلیل", "هزینه/ریسک"])
-    st.dataframe(dec, hide_index=True, width="stretch", height=230)
-
-    st.markdown("### فایل‌های کلیدی")
-    files = pd.DataFrame([
-        ("model/schema.sql", "DDL کامل T-SQL (idempotent، CHECK، FK، ایندکس)"),
-        ("model/etl_staging_to_dw.py", "ETL اجراشده: پاک‌سازی تاریخ/مبلغ/تخفیف + Reject"),
-        ("model/dw_demo.sqlite", "خروجی ETL — جایگزین محلی SQL Server"),
-        ("model/measures.dax", "سنجه‌های DAX (فروش، حاشیه، مرجوعی، YTD/MTD شمسی)"),
-        ("report/POWER_BI_BUILD_GUIDE.md", "ساخت گزارش، RLS، View-as، Publish"),
-        ("report/theme.json", "تم «Enterprise DW Fa» — #232b36 و #d64541 روی #f6f7f8"),
-    ], columns=["فایل", "کاربرد"])
-    st.dataframe(files, hide_index=True, width="stretch", height=240)
+        ("تقویم شمسی به‌عنوان کلید تاریخ", "الزام گزارش فارسی", "ستون میلادی موازی"),
+        ("Import mode", "استقرار ساده و کارایی", "Refresh زمان‌بندی‌شده"),
+        ("Reject در DW", "قابل گزارش و پیگیری", "نگهداشت دوره‌ای"),
+        ("SQLite برای اثبات منطق", "اجرای واقعی بدون زیرساخت", "بدون Columnstore"),
+        ("RLS فقط مستند", "نبود AD و Report Server", "قبل از انتشار الزامی"),
+    ], columns=["تصمیم", "دلیل", "هزینه"])
+    rtl_table(dec, max_height=None)
 
 
-# --------------------------------------------------------------------------- صفحه ۵
+# ------------------------------------------------------------------ ۵) دربارهٔ داده
 def page_data() -> None:
-    st.markdown("## دربارهٔ داده")
-    banner("کل داده نمونه است: <b>seed=۱۴۰۳۰۵۰۵</b>، تولید‌شده با scripts/generate_all_data.py. "
-           "هیچ دیتاست عمومی یا سازمانی استفاده نشده. واحد ریال، تقویم شمسی ۱۴۰۳.")
+    page_head("دربارهٔ داده",
+              "کل داده نمونه و قابل بازتولید است. هیچ دیتاست عمومی یا سازمانی استفاده نشده.",
+              "شفافیت")
 
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        st.markdown("### مشخصات تولید داده")
-        meta = pd.DataFrame([
-            ("seed", "۱۴۰۳۰۵۰۵"),
-            ("اسکریپت", "scripts/generate_all_data.py"),
-            ("سال داده", "۱۴۰۳ شمسی (+ معادل میلادی)"),
-            ("واحد پول", "ریال"),
-            ("فروش خالص نمونه", fa_humt(int(load_csv("fact_sales")["net_amount_irr"].sum()))),
-            ("مرجوعی", fa_num(len(load_csv("fact_returns"))) + " سند"),
-            ("staging", fa_num(len(load_csv("stg_sales_raw", keep_default_na=False))) + " ردیف عمداً کثیف"),
-            ("کتابخانه‌ها", "pandas · jdatetime · streamlit · plotly"),
-        ], columns=["مورد", "مقدار"])
-        st.dataframe(meta, hide_index=True, width="stretch", height=306)
+    sales = load_csv("fact_sales")
+    returns = load_csv("fact_returns")
+    kpis([
+        ("seed", fa_digits("۱۴۰۳۰۵۰۵"), "تولید با اسکریپت", ""),
+        ("فروش خالص", compact(int(sales["net_amount_irr"].sum())), "ریال", ""),
+        ("مرجوعی", fa_num(len(returns)), "سند", ""),
+        ("staging", fa_num(len(load_csv("stg_sales_raw", keep_default_na=False))), "ردیف کثیف", ""),
+    ])
 
-    with c2:
-        st.markdown("### کنترل‌های کیفیت اجراشده")
-        q = pd.DataFrame([
-            ("یکتایی sale_id", "۰ تکراری", "✅"),
-            ("FK فکت → ۴ بعد", "۰ نقض", "✅"),
-            ("FK مرجوعی → fact_sales", "۰ نقض", "✅"),
-            ("بازمحاسبهٔ net = qty×price×(1−disc)", "۰ مغایرت", "✅"),
-            ("هم‌خوانی منطقهٔ فکت/مشتری", "۰ ناهم‌خوانی", "✅"),
-            ("تبدیل هر ۴ فرمت تاریخ staging", "۳۰۰/۳۰۰", "✅"),
-            ("حذف کامای هزارگان", "۱۰۰٪ ردیف‌ها", "✅"),
-            ("تخفیف خالی → ۰", "۱۰۰٪ ردیف‌ها", "✅"),
-        ], columns=["کنترل", "نتیجه", "وضعیت"])
-        st.dataframe(q, hide_index=True, width="stretch", height=306)
+    st.markdown("## کنترل‌های کیفیت")
+    q = pd.DataFrame([
+        ("یکتایی sale_id", "بدون تکرار", "گذشت"),
+        ("FK فکت به چهار بُعد", "بدون نقض", "گذشت"),
+        ("FK مرجوعی به fact_sales", "بدون نقض", "گذشت"),
+        ("بازمحاسبهٔ net", "بدون مغایرت", "گذشت"),
+        ("منطقهٔ فکت و مشتری", "هم‌خوان", "گذشت"),
+        ("تبدیل چهار فرمت تاریخ", "۳۰۰ از ۳۰۰", "گذشت"),
+        ("حذف کامای هزارگان", "۱۰۰٪", "گذشت"),
+        ("تخفیف خالی به صفر", "۱۰۰٪", "گذشت"),
+    ], columns=["کنترل", "نتیجه", "وضعیت"])
+    rtl_table(q, max_height=None)
 
-    st.markdown("### محدودیت‌ها (صادقانه)")
+    st.markdown("## محدودیت‌ها")
     lim = pd.DataFrame([
-        ("زیرساخت واقعی", "SQL Server، Report Server، SSL، شبکه — هیچ‌کدام نصب/تست نشده"),
-        ("schema.sql", "روی SQL Server اجرا نشده؛ نیازمند DBA Review (کالیشن، فایل‌گروپ، بکاپ)"),
-        ("SQLite", "جایگزین محلی؛ Columnstore/پارتیشن/آمار فقط در سرور واقعی معنا دارد"),
-        ("Reject", "در نمونه ۰ ردیف است؛ جریان واقعی خطا نمایش داده نشده"),
-        ("RLS", "فقط مستند؛ بدون Security Policy و بدون View-as"),
-        ("YTD/سال مالی", "وابسته به dim_date این پروژه و فرض مرز نوروز"),
-        ("گزارش", "فایل .pbix ساخته نشده؛ Report Server منتشر نشده"),
-        ("شرح خدمات", "پیوست کارفرما موجود نبود؛ Scope طراحی مستقل است"),
-        ("ROI", "هیچ ادعای صرفه‌جویی/بهره‌وری نمی‌شود"),
-        ("لایسنس", "لایسنس Power BI Report Server الزامی است و تأمین نشده"),
+        ("زیرساخت", "SQL Server، Report Server، SSL و شبکه نصب/تست نشده"),
+        ("schema.sql", "اجرا نشده؛ نیازمند بازبینی DBA"),
+        ("SQLite", "جایگزین محلی؛ بدون Columnstore و پارتیشن"),
+        ("Reject", "در نمونه صفر ردیف"),
+        ("RLS", "فقط مستند، بدون View-as"),
+        ("YTD", "وابسته به dim_date و فرض مرز نوروز"),
+        ("گزارش", "بدون .pbix و بدون انتشار"),
+        ("شرح خدمات", "پیوست کارفرما موجود نبود"),
+        ("ROI", "هیچ ادعای صرفه‌جویی نمی‌شود"),
+        ("لایسنس", "تأمین نشده"),
     ], columns=["موضوع", "توضیح"])
-    st.dataframe(lim, hide_index=True, width="stretch", height=400)
+    rtl_table(lim, max_height=430)
 
-    st.markdown("### منابع داده")
-    st.markdown(
-        """
-<div class="banner-ok">
-<b>منبع:</b> هیچ منبع بیرونی. کل داده با شبیه‌سازی کنترل‌شده (random با seed ثابت) در همین مخزن
-تولید شده و با اجرای مجدد اسکریپت عیناً بازتولید می‌شود. اعداد برای «مقیاس واقع‌نمای سازمانی»
-کالیبره شده‌اند (ضریب PRICE_SCALE) و <b>برآورد بازار یا فروش واقعی نیستند</b>.
-</div>
-""", unsafe_allow_html=True)
-    st.markdown('<div class="legend-note">جزئیات: data/DATA_DICTIONARY.md · '
-                'data/DATA_QUALITY_REPORT.md · LIMITATIONS.md · SOURCES.md</div>',
-                unsafe_allow_html=True)
+    st.markdown("## منبع")
+    quiet("داده با scripts/generate_all_data.py و seed ثابت تولید می‌شود و با اجرای مجدد عیناً "
+          "بازتولید می‌شود. اعداد برای مقیاس سازمانی کالیبره شده‌اند و برآورد بازار نیستند.")
 
 
-# --------------------------------------------------------------------------- اجرا
+# ------------------------------------------------------------------ اجرا
 def main() -> None:
     inject_css()
     page = sidebar()
     try:
-        if page == PAGES[0]:
-            page_overview()
-        elif page == PAGES[1]:
-            page_etl()
-        elif page == PAGES[2]:
-            page_sales()
-        elif page == PAGES[3]:
-            page_deploy()
-        else:
-            page_data()
-    except Exception as exc:  # نمایش خطای خوانا به‌جای صفحهٔ سفید
-        st.markdown(f'<div class="banner-bad">خطا در نمایش این صفحه: {fa_digits(exc)}</div>',
-                    unsafe_allow_html=True)
+        {"نمای کلی": page_overview, "پایپ‌لاین ETL": page_etl, "تحلیل فروش": page_sales,
+         "استقرار": page_deploy, "دربارهٔ داده": page_data}[page]()
+    except Exception as exc:
+        note(f"خطا در نمایش این صفحه: {fa_digits(exc)}")
         with st.expander("جزئیات فنی"):
             st.exception(exc)
 
     st.markdown('<hr>', unsafe_allow_html=True)
-    st.markdown(
-        f'<div style="text-align:center;color:#8a94a3;font-size:.72rem;line-height:1.9">'
-        f'پروژهٔ ۵ — راهکار سازمانی SQL Server + DW + Power BI Report Server · '
-        f'۱۴۰۵/۰۹/۰۵<br>دادهٔ نمونه (seed=۱۴۰۳۰۵۰۵) · SQLite جایگزین محلی · '
-        f'بدون ادعای نصب یا انتشار سازمانی</div>',
-        unsafe_allow_html=True,
-    )
+    quiet("پروژهٔ ۵ — دادهٔ نمونه (seed ۱۴۰۳۰۵۰۵) · SQLite جایگزین محلی · "
+          "بدون ادعای نصب یا انتشار سازمانی")
 
 
 if __name__ == "__main__":
