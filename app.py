@@ -45,6 +45,17 @@ PAGES = [
     "دربارهٔ داده",
 ]
 
+# --------------------------------------------------------------------------- گارد نسخه
+# Streamlit Community Cloud / سرورهای داخلی ممکن است پایتون قدیمی داشته باشند.
+# این گارد پیش از هر کاری، پیام فارسی خوانا نشان می‌دهد.
+if sys.version_info < (3, 9):
+    st.error(
+        "این برنامه به پایتون ۳٫۹ یا بالاتر نیاز دارد. "
+        f"نسخهٔ فعلی: {sys.version.split()[0]} — "
+        "در Streamlit Cloud از Settings → Python version نسخهٔ ۳٫۱۱ یا ۳٫۱۲ را انتخاب کنید."
+    )
+    st.stop()
+
 st.set_page_config(
     page_title="انبار دادهٔ سازمانی — پروژهٔ ۵",
     page_icon="🗄️",
@@ -487,10 +498,13 @@ def page_etl() -> None:
     <div class="hint">etl_reject خالی است</div></div>
 </div>
 """, unsafe_allow_html=True)
+        # مقدارها قبل از ساخت رشته حساب می‌شوند تا f-string ساده و تک‌خطی بماند
+        # (اجرای چندخطی داخل {} فقط روی پایتون ۳٫۱۲+ مجاز است)
+        stamp = pd.Timestamp(DB_PATH.stat().st_mtime, unit="s", tz="UTC")
+        stamp_fa = fa_digits(stamp.tz_convert("Asia/Tehran").strftime("%Y/%m/%d %H:%M"))
         st.markdown(
-            f'<div class="legend-note">فایل: model/dw_demo.sqlite · '
-            f'آخرین بازنویسی: {fa_digits(pd.Timestamp(DB_PATH.stat().st_mtime, unit="s", tz="UTC")
-                                        .tz_convert("Asia/Tehran").strftime("%Y/%m/%d %H:%M"))}</div>',
+            '<div class="legend-note">فایل: model/dw_demo.sqlite · '
+            f'آخرین بازنویسی: {stamp_fa}</div>',
             unsafe_allow_html=True)
     else:
         st.markdown('<div class="banner-bad">dw_demo.sqlite موجود نیست؛ ابتدا ETL را اجرا کنید.</div>',
