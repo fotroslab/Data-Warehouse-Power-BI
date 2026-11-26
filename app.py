@@ -38,11 +38,11 @@ FONTS = BASE / "assets" / "fonts"
 # ════════════════════════════════════════════════════════════════════
 T = dict(
     # رنگ
-    page="#f7f8fa", surface="#ffffff", tint="#f6f7f9", sunken="#f1f3f5",
+    page="#f3f6fa", surface="#ffffff", tint="#eef5f8", sunken="#eaf0f5",
     line="#e4e8ec", hair="#eef1f4",
     ink="#18202b", ink2="#46525f", muted="#78838f", faint="#9aa4af",
-    accent="#9c4a3c", accent_soft="#f7efed", accent_line="#e5d2ce",
-    good="#3f6b52", warn_bg="#fbf7ef", warn_line="#e9dcc4", warn_ink="#84673a",
+    accent="#123b5a", accent_soft="#eaf3f7", accent_line="#c8dce7",
+    good="#098b87", warn_bg="#fbf7ef", warn_line="#e9dcc4", warn_ink="#84673a",
     # تایپوگرافی (rem)
     fs_display="1.5rem", fs_h2="1.02rem", fs_h3=".9rem",
     fs_body=".875rem", fs_small=".79rem", fs_micro=".72rem",
@@ -279,6 +279,28 @@ table.rt td.m {{
 [data-baseweb="tag"] {{ background:{T['sunken']} !important; color:{T['ink2']} !important;
   font-size:{T['fs_micro']} !important; border-radius:4px !important; }}
 [data-testid="stExpander"] {{ border:1px solid {T['line']} !important; border-radius:{T['radius_sm']} !important; }}
+
+[data-testid="stVerticalBlockBorderWrapper"] {{background:#fff!important;}}
+/* Dashboard v4: structural cards and consistent visual hierarchy */
+.head {{background:#fff;border:1px solid #dfe7ee;border-right:5px solid #123b5a;border-radius:14px;padding:22px 26px!important;box-shadow:0 4px 18px #123b5a06;}}
+.head .eyebrow {{color:#098b87!important;font-weight:700;}}
+.kpis {{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:16px!important;margin:18px 0 8px!important;}}
+.kpi {{background:#fff!important;border:1px solid #dfe7ee!important;border-top:4px solid #123b5a!important;border-radius:12px!important;padding:20px!important;min-height:139px;box-shadow:0 3px 12px #123b5a05;}}
+.kpi:nth-child(2) {{border-top-color:#098b87!important;}}
+.kpi:nth-child(3) {{border-top-color:#d6a321!important;}}
+.kpi:nth-child(4) {{border-top-color:#c45a54!important;}}
+.kpi .lb {{font-size:.79rem!important;color:#526476!important;}}
+.kpi .vl {{font-size:1.55rem!important;color:#123b5a!important;margin:13px 0 8px!important;font-weight:700!important;}}
+.kpi .hint {{font-size:.72rem!important;}}
+[data-testid="stVerticalBlockBorderWrapper"]>div,[data-testid="stLayoutWrapper"]>[data-testid="stVerticalBlockBorderWrapper"] {{border-radius:14px!important;}}
+.ct {{color:#123b5a!important;font-size:1.02rem!important;font-weight:700!important;border-right:3px solid #098b87;padding-right:10px!important;}}
+.cd {{margin:6px 0 12px!important;}}
+section[data-testid="stSidebar"] {{background:#fff!important;border-left:1px solid #dfe7ee;}}
+.brand {{background:#123b5a!important;border-radius:12px;padding:23px 18px!important;border-bottom:4px solid #d6a321!important;}}
+.brand .name,.brand .sub,.brand .mark {{color:#fff!important;}}
+section[data-testid="stSidebar"] [role="radiogroup"] label {{background:#f2f6f9;border:1px solid #e3ebf1;border-radius:8px;padding:9px 12px!important;margin:4px 0!important;}}
+@media(max-width:760px){{.kpis{{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}.block-container{{padding:1rem!important;}}}}
+
 </style>
 """
 
@@ -457,58 +479,67 @@ def sidebar() -> str:
 
 # ══════════════════════════════════════════════════════════════════ ۱) نمای کلی
 def page_overview() -> None:
-    head("انبار دادهٔ فروش",
-         "طرح انبار دادهٔ استاراسکیما برای شبکهٔ داخلی سازمان، همراه با اثبات اجرایی مسیر پاک‌سازی داده.",
-         "پروژهٔ ۵ · راهکار سازمانی")
-
-    s = db_summary(str(DB), db_stamp()) if DB.exists() else {}
-    sales = csv("fact_sales")
-    kpis([
-        ("فروش خالص ۱۴۰۳", money(s.get("_net") or sales["net_amount_irr"].sum()), "همت · ریال"),
-        ("اسناد فروش", num(s.get("fact_sales", len(sales))), "fact_sales"),
-        ("مرجوعی", num(s.get("fact_returns", 0)), f"{money(s.get('_ret', 0))}"),
-        ("ابعاد", f"{num(12)} · {num(500)} · {num(80)}", "منطقه · مشتری · کالا"),
-        ("Reject", "بدون ردیف", "مسیر آماده", "quiet"),
-    ])
-
-    sec("جریان داده", "از سیستم‌های عملیاتی تا گزارش؛ همه درون شبکهٔ داخلی")
-    steps = [("منابع", "ERP · CRM · مرجوعی"), ("Staging", "stg.sales_raw"),
-             ("پاک‌سازی", "ETL"), ("انبار", "ابعاد و فکت"), ("ارائه", "Report Server")]
-    chips = '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'
-    for i, (t, d) in enumerate(steps):
-        if i:
-            chips += f'<span style="color:#c8d0d9;font-size:.8rem">←</span>'
-        hot = i == 2
-        chips += (f'<span style="background:{T["accent_soft"] if hot else T["surface"]};'
-                  f'color:{T["accent"] if hot else T["ink2"]};border:1px solid '
-                  f'{T["accent_line"] if hot else T["line"]};border-radius:16px;'
-                  f'padding:5px 12px;font-size:.75rem;font-weight:500">{t}'
-                  f'<span style="color:{T["faint"]};font-weight:400;margin-inline-start:6px">{d}</span></span>')
-    chips += "</div>"
-    st.markdown(chips, unsafe_allow_html=True)
-
-    sec("مدل داده", "چهار بُعد هم‌شکل و دو جدول فکت · کلید تاریخ شمسی")
-    if DIAGRAM_SVG.exists():
-        svg = DIAGRAM_SVG.read_text(encoding="utf-8")
-        st.markdown(f'<div class="card lift diagram" style="padding:.8rem">{svg}</div>',
-                    unsafe_allow_html=True)
-    else:
-        note("نمودار مدل موجود نیست.")
-
-    sec("جدول‌ها")
-    table(pd.DataFrame([
-        ("dim_date", num(366), "تقویم شمسی + میلادی", "بُعد"),
-        ("dim_region", num(12), "منطقه و پهنه", "بُعد"),
-        ("dim_customer", num(500), "حقیقی / حقوقی · کانال", "بُعد"),
-        ("dim_product", num(80), "کالا · دسته · قیمت", "بُعد"),
-        ("fact_sales", num(30000), "یک سطر = یک قلم فروش", "فکت"),
-        ("fact_returns", num(2000), "ارجاع به sale_id", "فکت"),
-        ("etl_reject", "۰", "پایش کیفیت ورودی", "کنترل"),
-        ("etl_load_log", "هر اجرا", "ثبت بار", "کنترل"),
-    ], columns=["جدول", "ردیف", "محتوا", "نوع"]), height=330, numeric=["ردیف"])
-
-    note("Report Server نصب و لایسنس نشده است · اعداد فروش واقعی نیستند · "
-         "RLS منطقه‌ای فقط مستند است و تست نشده.")
+    head("نمای مدیریتی فروش و انبار داده", "عملکرد فروش، پراکندگی بازار و مرجوعی‌ها · سال ۱۴۰۳ · واحد مبالغ: ریال", "انبار دادهٔ فروش / نمای کلی")
+    sales, returns = csv("fact_sales"), csv("fact_returns")
+    dates, regions, products = csv("dim_date"), csv("dim_region"), csv("dim_product")
+    with st.sidebar:
+        sec("فیلترهای تحلیلی", "محدودهٔ نمای کلی")
+        choices = regions.set_index("region_id")["region_name_fa"].to_dict()
+        selected = st.multiselect("منطقهٔ فروش", list(choices), format_func=lambda k: choices[k], placeholder="همهٔ مناطق", key="overview_region")
+        cats = st.multiselect("گروه محصول", products["category_name_fa"].unique().tolist(), placeholder="همهٔ گروه‌ها", key="overview_category")
+    sf, rf = sales.copy(), returns.copy()
+    if selected:
+        sf = sf[sf.region_id.isin(selected)]
+        rf = rf[rf.region_id.isin(selected)]
+    if cats:
+        ids = products.loc[products.category_name_fa.isin(cats), "product_id"]
+        sf = sf[sf.product_id.isin(ids)]
+        rf = rf[rf.product_id.isin(ids)]
+    net, ret = float(sf.net_amount_irr.sum()), float(rf.return_amount_irr.sum())
+    kpis([("فروش خالص", money(net), "ریال · پس از تخفیف"),
+          ("ردیف‌های فروش", num(len(sf)), "هر ردیف یک قلم فروش؛ نه تعداد فاکتور"),
+          ("مبلغ برگشتی", money(ret), "ریال · ثبت‌شده در دوره"),
+          ("نسبت مبلغ برگشتی", num(100*ret/net, 2)+"٪" if net else "—", "مبلغ برگشتی ÷ فروش خالص")])
+    hint("دادهٔ نمونه است؛ فروش واقعی سازمان نیست. فیلترها بر تمام شاخص‌ها و نمودارهای این صفحه اعمال می‌شوند.")
+    m = (sf.merge(dates[["date_key", "month", "month_name_fa"]], on="date_key")
+         .groupby(["month", "month_name_fa"], as_index=False).net_amount_irr.sum().sort_values("month"))
+    rm = (rf.merge(dates[["date_key", "month"]], on="date_key").groupby("month").return_amount_irr.sum())
+    c1,c2 = st.columns(2)
+    with c1, st.container(border=True):
+        chart_card("روند ماهانهٔ فروش", "فروش خالص · میلیارد ریال")
+        f = go.Figure(go.Scatter(x=m.month_name_fa,y=m.net_amount_irr/1e9,mode="lines+markers",line=dict(color="#098b87",width=3),marker=dict(size=7,color="#123b5a"),fill="tozeroy",fillcolor="rgba(9,139,135,.10)",hovertemplate="%{x}<br>%{y:,.1f} میلیارد ریال<extra></extra>"))
+        fa_axis(f,"y",nice_ticks(float(m.net_amount_irr.max()/1e9) if len(m) else 0),d=0)
+        figure(f,285,dict(l=55,r=15,t=15,b=45))
+    with c2, st.container(border=True):
+        chart_card("سهم مناطق از فروش", "رتبه‌بندی مناطق · میلیارد ریال")
+        r = sf.groupby("region_id",as_index=False).net_amount_irr.sum().merge(regions,on="region_id").sort_values("net_amount_irr")
+        colors=["#098b87"]*len(r)
+        if colors: colors[-1]="#d6a321"
+        f=go.Figure(go.Bar(x=r.net_amount_irr/1e9,y=r.region_name_fa,orientation="h",marker_color=colors,text=[num(v/1e9,0) for v in r.net_amount_irr],textposition="inside",textangle=0,textfont_color="white"))
+        fa_axis(f,"x",nice_ticks(float(r.net_amount_irr.max()/1e9) if len(r) else 0),d=0)
+        hbar(f)
+        figure(f,285,dict(l=75,r=10,t=10,b=35))
+    c3,c4=st.columns(2)
+    with c3, st.container(border=True):
+        chart_card("ترکیب فروش گروه‌های محصول", "سهم هر گروه از مبلغ فروش خالص")
+        g=sf.merge(products,on="product_id").groupby("category_name_fa",as_index=False).net_amount_irr.sum()
+        f=go.Figure(go.Pie(labels=g.category_name_fa,values=g.net_amount_irr,hole=.66,sort=False,marker=dict(colors=["#123b5a","#098b87","#d6a321","#6b94ab","#91c5bd","#d4dfe8"]),textinfo="label",textposition="outside",hovertemplate="%{label}<br>%{value:,.0f} ریال<extra></extra>"))
+        figure(f,285,dict(l=45,r=45,t=25,b=25))
+    with c4, st.container(border=True):
+        chart_card("برگشتی‌های ماهانه", "مبلغ برگشتی بر اساس تاریخ ثبت برگشت · میلیارد ریال")
+        vals=[float(rm.get(v,0))/1e9 for v in m.month]
+        f=go.Figure(go.Bar(x=m.month_name_fa,y=vals,marker_color="#d6a321",text=[num(v,1) for v in vals],textposition="outside",cliponaxis=False))
+        fa_axis(f,"y",nice_ticks(max(vals) if vals else 0),d=0)
+        figure(f,285,dict(l=45,r=15,t=20,b=45))
+    sec("محصولات پیشتاز", "ده محصول با بیشترین فروش خالص در محدودهٔ انتخاب‌شده")
+    top=sf.groupby("product_id",as_index=False).agg(net_amount_irr=("net_amount_irr","sum"),quantity=("quantity","sum")).merge(products[["product_id","product_name_fa","category_name_fa"]],on="product_id").nlargest(10,"net_amount_irr")
+    top=top[["product_name_fa","category_name_fa","quantity","net_amount_irr"]]
+    top.columns=["محصول","گروه","تعداد","فروش خالص (ریال)"]
+    table(top,height=360,numeric=["تعداد","فروش خالص (ریال)"])
+    with st.expander("معماری و حدود اجرای این نمونه"):
+        note("SQLite جایگزین محلی است؛ SQL Server واقعی و نصب Report Server آزموده نشده‌اند. RLS فقط مستند است.")
+        if DIAGRAM_SVG.exists():
+            st.markdown(DIAGRAM_SVG.read_text(encoding="utf-8"),unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════ ۲) ETL
