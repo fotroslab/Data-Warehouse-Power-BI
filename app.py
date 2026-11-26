@@ -1,20 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-app.py — انبار دادهٔ فروش · پروژهٔ ۵
-=====================================================================
-SQL Server + Data Warehouse + Power BI Report Server — طرح و اثبات منطق.
 
-اجرا:
-    streamlit run app.py --server.port 8506 --server.address 0.0.0.0
-
-صداقت: Report Server نصب/لایسنس نشده، schema.sql روی SQL Server واقعی اجرا نشده و
-dw_demo.sqlite یک جایگزین محلی است. اعداد از دادهٔ نمونهٔ seed=14030505 می‌آیند و
-فروش واقعی هیچ سازمانی نیستند.
-
-طراحی: یک سیستم طراحی توکن‌محور (رنگ، تایپ، فاصله، شعاع) در بالای فایل؛ همهٔ صفحه‌ها
-فقط از همین توکن‌ها استفاده می‌کنند تا اندازه‌ها و فونت‌ها یکدست بمانند.
-"""
 from __future__ import annotations
 
 import base64
@@ -54,7 +40,7 @@ FONT = "'Vazirmatn FD', Vazirmatn, Tahoma, sans-serif"
 
 PAGES = ["نمای کلی", "پایپ‌لاین ETL", "تحلیل فروش", "استقرار", "دربارهٔ داده"]
 
-st.set_page_config(page_title="انبار دادهٔ فروش · پروژهٔ ۵", page_icon="▦",
+st.set_page_config(page_title="سامانهٔ تحلیل فروش و انبار داده", page_icon="▦",
                    layout="wide", initial_sidebar_state="expanded")
 
 # ------------------------------------------------------------------ کمکی
@@ -464,7 +450,7 @@ def sidebar() -> str:
         st.markdown(
             '<div class="brand"><div class="mark">▦</div>'
             '<div class="name">انبار دادهٔ فروش</div>'
-            '<div class="sub">SQL Server · DW · Report Server<br>پروژهٔ ۵ — ۱۴۰۵/۰۹/۰۵</div></div>',
+            '<div class="sub">تحلیل عملکرد فروش و کیفیت داده</div></div>',
             unsafe_allow_html=True)
         page = st.radio("صفحه", PAGES, label_visibility="collapsed")
         st.markdown(
@@ -855,7 +841,7 @@ def main() -> None:
             st.exception(exc)
 
     st.markdown(f'<hr>', unsafe_allow_html=True)
-    hint("پروژهٔ ۵ — دادهٔ نمونه (seed ۱۴۰۳۰۵۰۵) · SQLite جایگزین محلی · "
+    hint("نسخهٔ نمایشی · دادهٔ نمونه · SQLite جایگزین محلی · "
          "بدون ادعای نصب یا انتشار سازمانی")
 
 
