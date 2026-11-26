@@ -71,9 +71,9 @@ def main() -> int:
         print("✔ assets/preview.png")
 
         # ---- ۲) ETL زنده: اجرای واقعی اسکریپت از طریق دکمه
-        goto_page(page, "پایپ‌لاین زندهٔ ETL")
+        goto_page(page, "پایپ‌لاین ETL")
         page.add_style_tag(content=CSS_FIX)
-        btn = page.get_by_role("button", name="اجرای ETL روی staging")
+        btn = page.get_by_role("button", name="اجرای ETL", exact=True)
         btn.click()
         # انتظار برای خروجی متنی واقعی اسکریپت
         page.wait_for_selector("pre", timeout=180_000)
@@ -87,7 +87,7 @@ def main() -> int:
         print("✔ assets/preview_etl.png")
 
         # ---- ۳) تحلیل فروش
-        goto_page(page, "تحلیل فروش نمونه")
+        goto_page(page, "تحلیل فروش")
         settle(page, 3)
         page.add_style_tag(content=CSS_FIX)
         settle(page, 1.5)

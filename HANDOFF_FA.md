@@ -24,7 +24,7 @@
 | مدل و سنجه‌ها | `model/MODEL.md` · `model/measures.dax` · `assets/model_diagram.svg` |
 | گزارش/استقرار | `report/ARCHITECTURE.md` · `report/DEPLOYMENT_CHECKLIST.md` · `report/POWER_BI_BUILD_GUIDE.md` · `report/theme.json` |
 | داده و مستندات آن | `data/*.csv` · `data/DATA_DICTIONARY.md` · `data/DATA_QUALITY_REPORT.md` |
-| تست‌ها | `tests/test_data_quality.py` (۳۷ تست) |
+| تست‌ها | `tests/test_data_quality.py` (۳۹) · `tests/test_rtl_layout.py` (۳) |
 | اسناد | `README_FA.md` · `PORTFOLIO_CASE_STUDY_EN.md` · `VALIDATION.md` · `LIMITATIONS.md` · `SOURCES.md` |
 | اسکرین‌شات | `assets/preview.png` · `assets/preview_etl.png` · `assets/preview_sales.png` |
 | اسکریپت‌های کمکی | `scripts/generate_all_data.py` · `scripts/make_model_diagram.py` · `scripts/make_preview.py` |
@@ -60,8 +60,18 @@ YTD شمسی با `jalali_date_key`؛ مرز سال مالی **نوروز فرض
 
 ## ۶) RTL / تم
 
-تم «Enterprise DW Fa»؛ فونت Vazirmatn (woff2، به‌صورت data-URI در اپ)؛ اعداد فارسی؛ ریال؛
-رنگ گرافیتی `#232b36` + قرمز `#d64541` روی `#f6f7f8`.
+
+تم «Enterprise DW Fa»؛ فونت Vazirmatn (woff2، به‌صورت data-URI در اپ)؛ اعداد فارسی؛ ریال.
+
+**پالت جاری (پس از بازطراحی UI):** متن `#1f2630` / ثانویه `#3d4854` / کم‌رنگ `#6f7a88`،
+خط `#e6e9ed`، سطح `#ffffff`، صفحه `#f7f8f9`، لهجهٔ آجری `#9c4a3c`، دوم فیروزه‌ای `#3c6e80`.
+قواعد تایپوگرافی و اجزا در بخش «سیستم طراحی» `README_FA.md` و ثابت‌های بالای `app.py`.
+تم `report/theme.json` و `.streamlit/config.toml` هم با همین پالت هم‌راستا شده‌اند.
+
+**درس RTL (مهم برای ایجنت بعدی):** `direction: rtl` کافی نیست — Streamlit
+`text-align: left` را خودش اعمال می‌کند. باید `text-align: right` صریح بازنویسی شود و
+**`st.dataframe` استفاده نشود** (همیشه LTR است)؛ به‌جایش `rtl_table()` در `app.py`.
+تست `tests/test_rtl_layout.py` این را قفل کرده است — آن را حذف نکنید.
 
 ## ۷) اپ پیش‌نمایش — ۵ صفحه
 
@@ -92,7 +102,9 @@ YTD شمسی با `jalali_date_key`؛ مرز سال مالی **نوروز فرض
 4. RLS فقط مستند است؛ بدون View-as تست نشده.
 5. برچسب‌های «مصنوعی/synthetic» را دوباره به تیترها اضافه نکنید — پروژه عمداً «خوبِ نمونهٔ استقرار»
    معرفی می‌شود، ولی اعدادش واقعی نیستند (این در `LIMITATIONS.md` و بنر هر صفحه قید شده؛ همان بماند).
-6. اگر `preview.png` را دوباره ساختید: viewport ≥ `۱۵۰۰×۱۷۵۰`؛ `.js-plotly-plot{direction:ltr}`؛
+6. نمودارهای میله‌ای افقی **باید** از `hbar_rtl()` استفاده کنند (میله از راست، برچسب در
+   حاشیهٔ آزاد)؛ وگرنه برچسب‌های فارسی از سمت راست بریده می‌شوند.
+7. اگر `preview.png` را دوباره ساختید: viewport ≥ `۱۵۰۰×۱۷۵۰`؛ `.js-plotly-plot{direction:ltr}`؛
    `margin` از `style_fig`؛ `cliponaxis=False`. **هرگز `direction="rtl"` روی ریشهٔ SVG نگذارید**
    (با `text-anchor="end"` متن از کادر بیرون می‌زند — درس گرفته‌شده، در `make_model_diagram.py` مستند است).
 7. جمع فروش در تست قفل شده؛ اگر seed یا منطق داده عوض شد، تست عمداً می‌شکند — آن را با اعداد

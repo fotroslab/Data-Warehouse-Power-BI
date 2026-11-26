@@ -220,6 +220,45 @@ class TestStagingTransform(unittest.TestCase):
                                .str.match(r"^\s|\s$").sum()), 0)
 
 
+class TestCompatibility(unittest.TestCase):
+    """قفل کردن کفِ نسخهٔ پایتون: استقرار روی Streamlit Cloud/سرور قدیمی نباید بشکند."""
+
+    PY_FILES = [
+        "app.py", "model/etl_staging_to_dw.py", "tests/test_data_quality.py",
+        "scripts/generate_all_data.py", "scripts/make_model_diagram.py",
+        "scripts/make_preview.py", "scripts/check_compat.py",
+    ]
+
+    def test_compiles_with_python_39_grammar(self):
+        import ast
+        for rel in self.PY_FILES:
+            path = BASE_DIR / rel
+            if not path.exists():
+                continue
+            src = path.read_text(encoding="utf-8")
+            with self.subTest(file=rel):
+                try:
+                    ast.parse(src, filename=rel, feature_version=(3, 9))
+                except SyntaxError as exc:
+                    self.fail(f"{rel} خط {exc.lineno}: با گرامر پایتون ۳٫۹ خوانده نمی‌شود "
+                              f"({exc.msg}). مقدار f-string را در متغیر بگیرید.")
+
+    def test_no_pep701_fstrings(self):
+        """هیچ f-string چندخطی/کوتیشن همسان داخل {} نباشد (فقط ۳٫۱۲+)."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "check_compat", BASE_DIR / "scripts" / "check_compat.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        for rel in self.PY_FILES:
+            path = BASE_DIR / rel
+            if not path.exists():
+                continue
+            with self.subTest(file=rel):
+                problems = mod.scan(path)
+                self.assertEqual(problems, [], f"{rel}: {problems}")
+
+
 class TestArtifacts(unittest.TestCase):
     def test_required_files_exist(self):
         required = [
@@ -234,8 +273,10 @@ class TestArtifacts(unittest.TestCase):
     def test_theme_json_valid(self):
         theme = json.loads((BASE_DIR / "report" / "theme.json").read_text(encoding="utf-8"))
         self.assertEqual(theme["name"], "Enterprise DW Fa")
-        self.assertIn("#d64541", theme["dataColors"])
-        self.assertIn("#232b36", theme["dataColors"])
+        # پالت جاری (هم‌راستا با اپ): گرافیتی #1f2630 + آجری #9c4a3c روی #f7f8f9
+        self.assertIn("#1f2630", theme["dataColors"])
+        self.assertIn("#9c4a3c", theme["dataColors"])
+        self.assertEqual(theme["background"], "#f7f8f9")
 
     def test_sql_contains_core_objects(self):
         sql = (MODEL_DIR / "schema.sql").read_text(encoding="utf-8")
