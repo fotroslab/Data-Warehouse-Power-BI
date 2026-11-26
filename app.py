@@ -285,8 +285,9 @@ table.rt td.m {{
 
 # ------------------------------------------------------------------ اجزای UI
 def head(title: str, lede: str, eyebrow: str = "") -> None:
+    eyebrow_html = f'<div class="eyebrow">{eyebrow}</div>' if eyebrow else ""
     st.markdown(
-        f'<div class="head">{f"<div class=\'eyebrow\'>{eyebrow}</div>" if eyebrow else ""}'
+        f'<div class="head">{eyebrow_html}'
         f'<h1>{title}</h1><div class="lede">{lede}</div></div>',
         unsafe_allow_html=True)
 
