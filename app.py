@@ -19,9 +19,6 @@ ETL = BASE / "model" / "etl_staging_to_dw.py"
 DIAGRAM_SVG = BASE / "assets" / "model_diagram.svg"
 FONTS = BASE / "assets" / "fonts"
 
-# ════════════════════════════════════════════════════════════════════
-#  توکن‌های طراحی — تنها منبع حقیقت برای رنگ، اندازه، فاصله
-# ════════════════════════════════════════════════════════════════════
 T = dict(
     # رنگ
     page="#f3f6fa", surface="#ffffff", tint="#eef5f8", sunken="#eaf0f5",
@@ -42,8 +39,7 @@ PAGES = ["نمای کلی", "پایپ‌لاین ETL", "تحلیل فروش", "�
 
 st.set_page_config(page_title="سامانهٔ تحلیل فروش و انبار داده", page_icon="▦",
                    layout="wide", initial_sidebar_state="expanded")
-
-# ------------------------------------------------------------------ کمکی
+کمکی
 _FA = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 
 
@@ -291,7 +287,7 @@ section[data-testid="stSidebar"] [role="radiogroup"] label {{background:#f2f6f9;
 """
 
 
-# ------------------------------------------------------------------ اجزای UI
+
 def head(title: str, lede: str, eyebrow: str = "") -> None:
     eyebrow_html = f'<div class="eyebrow">{eyebrow}</div>' if eyebrow else ""
     st.markdown(
@@ -412,7 +408,7 @@ def hbar(fig: go.Figure) -> go.Figure:
     return fig
 
 
-# ------------------------------------------------------------------ داده
+
 @st.cache_data(show_spinner=False)
 def csv(name: str, keep_na: bool = True) -> pd.DataFrame:
     return pd.read_csv(DATA / f"{name}.csv", encoding="utf-8-sig", keep_default_na=keep_na)
@@ -444,7 +440,7 @@ def db_stamp() -> float:
     return DB.stat().st_mtime if DB.exists() else 0.0
 
 
-# ------------------------------------------------------------------ سایدبار
+
 def sidebar() -> str:
     with st.sidebar:
         st.markdown(
@@ -463,7 +459,6 @@ def sidebar() -> str:
     return page
 
 
-# ══════════════════════════════════════════════════════════════════ ۱) نمای کلی
 def page_overview() -> None:
     head("نمای مدیریتی فروش و انبار داده", "عملکرد فروش، پراکندگی بازار و مرجوعی‌ها · سال ۱۴۰۳ · واحد مبالغ: ریال", "انبار دادهٔ فروش / نمای کلی")
     sales, returns = csv("fact_sales"), csv("fact_returns")
@@ -528,7 +523,6 @@ def page_overview() -> None:
             st.markdown(DIAGRAM_SVG.read_text(encoding="utf-8"),unsafe_allow_html=True)
 
 
-# ══════════════════════════════════════════════════════════════════ ۲) ETL
 def page_etl() -> None:
     head("پایپ‌لاین ETL",
          "اسکریپت واقعی با یک کلیک اجرا می‌شود و خروجی‌اش همان‌طور که هست نمایش داده می‌شود.",
@@ -601,7 +595,6 @@ def page_etl() -> None:
          "اضافه کنید.")
 
 
-# ══════════════════════════════════════════════════════════════════ ۳) تحلیل فروش
 def page_sales() -> None:
     head("تحلیل فروش",
          "نمای نمونه از گزارش‌هایی که روی Report Server منتشر می‌شوند؛ واحد ریال و تقویم شمسی.",
@@ -721,8 +714,6 @@ def page_sales() -> None:
         "فروش (ریال)": top["فروش"].map(num),
     }), height=400, numeric=["تعداد", "اسناد", "فروش (ریال)"])
 
-
-# ══════════════════════════════════════════════════════════════════ ۴) استقرار
 def page_deploy() -> None:
     head("استقرار",
          "راهنمای اجرا در شبکهٔ داخلی سازمان. هیچ‌یک از این مراحل در این پروژه انجام نشده است.",
@@ -782,7 +773,6 @@ def page_deploy() -> None:
     ], columns=["تصمیم", "دلیل", "هزینه"]))
 
 
-# ══════════════════════════════════════════════════════════════════ ۵) داده
 def page_data() -> None:
     head("دربارهٔ داده",
          "داده نمونه و قابل بازتولید است؛ هیچ دیتاست عمومی یا سازمانی استفاده نشده.",
@@ -828,7 +818,6 @@ def page_data() -> None:
          "بازتولید می‌شود. اعداد برای مقیاس سازمانی کالیبره شده‌اند و برآورد بازار نیستند.")
 
 
-# ------------------------------------------------------------------ اجرا
 def main() -> None:
     st.markdown(css(), unsafe_allow_html=True)
     page = sidebar()
