@@ -1,10 +1,10 @@
 # تم پایهٔ اپ — منطق RTL و فونت در app.py تزریق می‌شود
 [theme]
 base = "light"
-primaryColor = "#d64541"
-backgroundColor = "#f6f7f8"
+primaryColor = "#9c4a3c"
+backgroundColor = "#f7f8f9"
 secondaryBackgroundColor = "#ffffff"
-textColor = "#232b36"
+textColor = "#1f2630"
 font = "sans serif"
 
 [server]
