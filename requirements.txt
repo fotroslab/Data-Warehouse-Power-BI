@@ -1,0 +1,6 @@
+streamlit>=1.40
+pandas>=2.0
+plotly>=5.20
+jdatetime>=4.1
+# اختیاری — فقط برای بازتولید اسکرین‌شات‌ها
+# playwright>=1.45

@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" width="1200" height="790">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#8a94a3"/>
+  </marker>
+  <style>
+  .box { fill:#ffffff; stroke:#c9d1db; stroke-width:1.5; }
+  .box-fact { fill:#fdf3f3; stroke:#d64541; stroke-width:2; }
+  .box-reject { fill:#fff8f1; stroke:#d9a86a; stroke-width:1.5; }
+  .hdr { fill:#232b36; }
+  .hdr-fact { fill:#d64541; }
+  .hdr-reject { fill:#8a5a24; }
+  .t { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:15px; font-weight:700; fill:#f6f7f8; direction:rtl; }
+  .t-fact { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:15px; font-weight:700; fill:#ffffff; direction:rtl; }
+  .pk { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:12.5px; font-weight:700; fill:#232b36; direction:rtl; }
+  .col { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:12.5px; fill:#3a4553; direction:rtl; }
+  .fk { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:12.5px; fill:#a3352f; direction:rtl; }
+  .note { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:12px; fill:#8a5a24; direction:rtl; }
+  .edge { stroke:#8a94a3; stroke-width:1.6; fill:none; marker-end:url(#arrow); }
+  .elabel { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:12px; fill:#5b6674; direction:ltr; }
+  .title { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:23px; font-weight:800; fill:#232b36; direction:rtl; }
+  .sub { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:12.5px; fill:#6b7480; direction:rtl; }
+  .foot { font-family:Vazirmatn, Vazirmatn FD, Tahoma, sans-serif; font-size:11.5px; fill:#7b8490; direction:rtl; }
+</style>
+</defs>
+<rect width="1200" height="790" fill="#f6f7f8"/>
+<text class="title" x="1150" y="42" text-anchor="start">مدل استاراسکیما — انبار دادهٔ پروژهٔ ۵</text>
+<text class="sub" x="1150" y="66" text-anchor="start">SQL Server · تقویم شمسی · واحد ریال · دادهٔ نمونه (seed=۱۴۰۳۰۵۰۵ · نمونه)</text>
+<g id="dim_date">
+<rect x="450" y="76" width="300" height="236" rx="8" class="box"/>
+<path d="M450,84 a8,8 0 0 1 8,-8 h284 a8,8 0 0 1 8,8 v26 h-300 z" class="hdr"/>
+<text class="t" x="736" y="99" text-anchor="start">dim_date — تقویم شمسی</text>
+<text class="pk" x="736" y="131" text-anchor="start">date_key  (PK)  YYYYMMDD شمسی</text>
+<text class="col" x="736" y="152" text-anchor="start">jalali_date · jalali_date_key</text>
+<text class="col" x="736" y="173" text-anchor="start">gregorian_date  (DATE)</text>
+<text class="col" x="736" y="194" text-anchor="start">year · month · month_name_fa · day</text>
+<text class="col" x="736" y="215" text-anchor="start">quarter · season_fa</text>
+<text class="col" x="736" y="236" text-anchor="start">day_of_week · weekday_fa</text>
+<text class="col" x="736" y="257" text-anchor="start">is_weekend · is_month_start</text>
+<text class="col" x="736" y="278" text-anchor="start">fiscal_year · fiscal_period</text>
+</g>
+<g id="dim_region">
+<rect x="56" y="76" width="268" height="170" rx="8" class="box"/>
+<path d="M56,84 a8,8 0 0 1 8,-8 h252 a8,8 0 0 1 8,8 v26 h-268 z" class="hdr"/>
+<text class="t" x="310" y="99" text-anchor="start">dim_region — منطقه</text>
+<text class="pk" x="310" y="131" text-anchor="start">region_id  (PK)  R01..R12</text>
+<text class="col" x="310" y="152" text-anchor="start">region_name_fa</text>
+<text class="col" x="310" y="173" text-anchor="start">region_code_fa</text>
+<text class="col" x="310" y="194" text-anchor="start">zone_fa</text>
+</g>
+<g id="dim_customer">
+<rect x="56" y="320" width="268" height="194" rx="8" class="box"/>
+<path d="M56,328 a8,8 0 0 1 8,-8 h252 a8,8 0 0 1 8,8 v26 h-268 z" class="hdr"/>
+<text class="t" x="310" y="343" text-anchor="start">dim_customer — مشتری</text>
+<text class="pk" x="310" y="375" text-anchor="start">customer_id  (PK)</text>
+<text class="col" x="310" y="396" text-anchor="start">customer_name_fa</text>
+<text class="col" x="310" y="417" text-anchor="start">segment_fa  (حقیقی/حقوقی)</text>
+<text class="col" x="310" y="438" text-anchor="start">channel_fa</text>
+<text class="fk" x="310" y="459" text-anchor="start">region_id  (FK → dim_region)</text>
+<text class="col" x="310" y="480" text-anchor="start">created_date · is_active</text>
+</g>
+<g id="dim_product">
+<rect x="876" y="320" width="268" height="172" rx="8" class="box"/>
+<path d="M876,328 a8,8 0 0 1 8,-8 h252 a8,8 0 0 1 8,8 v26 h-268 z" class="hdr"/>
+<text class="t" x="1130" y="343" text-anchor="start">dim_product — کالا</text>
+<text class="pk" x="1130" y="375" text-anchor="start">product_id  (PK)</text>
+<text class="col" x="1130" y="396" text-anchor="start">product_name_fa</text>
+<text class="col" x="1130" y="417" text-anchor="start">category_id · category_name_fa</text>
+<text class="col" x="1130" y="438" text-anchor="start">unit_price_irr</text>
+<text class="col" x="1130" y="459" text-anchor="start">unit_cost_irr · is_active</text>
+</g>
+<g id="fact_sales">
+<rect x="426" y="392" width="348" height="236" rx="8" class="box-fact"/>
+<path d="M426,400 a8,8 0 0 1 8,-8 h332 a8,8 0 0 1 8,8 v26 h-348 z" class="hdr-fact"/>
+<text class="t-fact" x="760" y="415" text-anchor="start">fact_sales — فروش (۳۰ هزار سند)</text>
+<text class="pk" x="760" y="447" text-anchor="start">sale_id  (PK)</text>
+<text class="fk" x="760" y="468" text-anchor="start">date_key (FK) · customer_id (FK)</text>
+<text class="fk" x="760" y="489" text-anchor="start">product_id (FK) · region_id (FK)</text>
+<text class="col" x="760" y="510" text-anchor="start">channel_fa · quantity</text>
+<text class="col" x="760" y="531" text-anchor="start">unit_price_irr · unit_cost_irr</text>
+<text class="col" x="760" y="552" text-anchor="start">discount_pct</text>
+<text class="col" x="760" y="573" text-anchor="start">gross_amount_irr</text>
+<text class="col" x="760" y="594" text-anchor="start">net_amount_irr · cost_amount_irr</text>
+</g>
+<g id="fact_returns">
+<rect x="876" y="576" width="268" height="172" rx="8" class="box-fact"/>
+<path d="M876,584 a8,8 0 0 1 8,-8 h252 a8,8 0 0 1 8,8 v26 h-268 z" class="hdr-fact"/>
+<text class="t-fact" x="1130" y="599" text-anchor="start">fact_returns — مرجوعی (۲ هزار سند)</text>
+<text class="pk" x="1130" y="631" text-anchor="start">return_id  (PK)</text>
+<text class="fk" x="1130" y="652" text-anchor="start">sale_id  (FK → fact_sales)</text>
+<text class="fk" x="1130" y="673" text-anchor="start">date_key · customer_id</text>
+<text class="fk" x="1130" y="694" text-anchor="start">product_id · region_id</text>
+<text class="col" x="1130" y="715" text-anchor="start">quantity_returned</text>
+<text class="col" x="1130" y="736" text-anchor="start">return_amount_irr · reason_fa</text>
+</g>
+<g id="etl_reject">
+<rect x="56" y="576" width="268" height="172" rx="8" class="box-reject"/>
+<path d="M56,584 a8,8 0 0 1 8,-8 h252 a8,8 0 0 1 8,8 v26 h-268 z" class="hdr-reject"/>
+<text class="t" x="310" y="599" text-anchor="start">etl_reject — پایش کیفیت</text>
+<text class="col" x="310" y="631" text-anchor="start">reject_id (PK) · source_row_id</text>
+<text class="col" x="310" y="652" text-anchor="start">reject_stage · reject_reason</text>
+<text class="col" x="310" y="673" text-anchor="start">raw_payload  (JSON)</text>
+<text class="col" x="310" y="694" text-anchor="start">load_batch_id · rejected_at</text>
+<text class="note" x="310" y="715" text-anchor="start">در نمونهٔ فعلی: بدون ردیف</text>
+</g>
+<path d="M600,312 L600,392" class="edge"/>
+<text class="elabel" x="612" y="358" text-anchor="start">1 : N</text>
+<path d="M190,246 L190,320" class="edge"/>
+<text class="elabel" x="202" y="288" text-anchor="start">1 : N</text>
+<path d="M324,402 L426,452" class="edge"/>
+<text class="elabel" x="330" y="416" text-anchor="start">1 : N</text>
+<path d="M876,402 L774,452" class="edge"/>
+<text class="elabel" x="792" y="416" text-anchor="start">N : 1</text>
+<path d="M774,582 L876,618" class="edge"/>
+<text class="elabel" x="792" y="590" text-anchor="start">1 : N</text>
+<text class="foot" x="1150" y="762" text-anchor="start">staging → پاک‌سازی → ابعاد و فکت‌ها · جریان Reject مستند و کدِ آماده دارد (در نمونه ۰ ردیف) · RLS منطقه‌ای فقط مستند است</text>
+</svg>

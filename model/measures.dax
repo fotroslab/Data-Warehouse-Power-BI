@@ -1,0 +1,137 @@
+// ============================================================================
+//  measures.dax — KPIهای انبار دادهٔ پروژهٔ ۵
+//  مدل: ستاره‌ای (dw.fact_sales / dw.fact_returns  →  dim_date, dim_customer,
+//        dim_product, dim_region).  حالت اتصال: Import mode روی Power BI Report Server.
+//  واحد پول: ریال. تقویم: شمسی (ستون تاریخِ رابطهٔ زمانی: dim_date[jalali_date_key]).
+//  نکته: این فایل به‌عنوان مرجع منطق DAX است؛ خودِ .pbix ساخته نشده (در LIMITATIONS).
+// ============================================================================
+
+// ---------------------------------------------------------------- پایه
+SUM Sales Net =
+SUM ( fact_sales[net_amount_irr] )
+
+SUM Sales Gross =
+SUM ( fact_sales[gross_amount_irr] )
+
+SUM Sales Cost =
+SUM ( fact_sales[cost_amount_irr] )
+
+SUM Quantity =
+SUM ( fact_sales[quantity] )
+
+SUM Returns Amount =
+SUM ( fact_returns[return_amount_irr] )
+
+SUM Returns Qty =
+SUM ( fact_returns[quantity_returned] )
+
+// تعداد اسناد فروش
+Sales Lines =
+COUNTROWS ( fact_sales )
+
+// ---------------------------------------------------------------- سنجه‌های ناخالص
+Gross Margin Amount =
+[SUM Sales Net] - [SUM Sales Cost]
+
+Gross Margin % =
+DIVIDE ( [Gross Margin Amount], [SUM Sales Net] )
+
+Average Discount % =
+DIVIDE (
+    SUMX ( fact_sales, fact_sales[discount_pct] * fact_sales[gross_amount_irr] ),
+    [SUM Sales Gross]
+)
+
+Average Basket Value (ریال) =
+DIVIDE ( [SUM Sales Net], DISTINCTCOUNT ( fact_sales[sale_id] ) )
+
+Average Selling Price =
+DIVIDE ( [SUM Sales Net], [SUM Quantity] )
+
+// ---------------------------------------------------------------- مرجوعی
+Return Rate % =
+DIVIDE ( [SUM Returns Amount], [SUM Sales Net] )
+
+Net Revenue After Returns =
+[SUM Sales Net] - [SUM Returns Amount]
+
+// ---------------------------------------------------------------- زمان (شمسی)
+// نکته: DimDate باید Mark as Date Table روی gregorian_date داشته باشد؛
+//       برای محاسبات شمسی از ستون‌های year/month روی dim_date استفاده می‌کنیم.
+Sales YTD =
+CALCULATE (
+    [SUM Sales Net],
+    FILTER (
+        ALL ( dim_date ),
+        dim_date[year] = MAX ( dim_date[year] )
+            && dim_date[jalali_date_key] <= MAX ( dim_date[jalali_date_key] )
+    )
+)
+
+Sales MTD =
+CALCULATE (
+    [SUM Sales Net],
+    FILTER (
+        ALL ( dim_date ),
+        dim_date[year] = MAX ( dim_date[year] )
+            && dim_date[month] = MAX ( dim_date[month] )
+            && dim_date[jalali_date_key] <= MAX ( dim_date[jalali_date_key] )
+    )
+)
+
+Sales Previous Month =
+CALCULATE (
+    [SUM Sales Net],
+    DATEADD ( dim_date[gregorian_date], -1, MONTH )
+)
+
+Sales MoM % =
+DIVIDE ( [SUM Sales Net] - [Sales Previous Month], [Sales Previous Month] )
+
+Sales Same Period Last Year =
+CALCULATE (
+    [SUM Sales Net],
+    FILTER (
+        ALL ( dim_date ),
+        dim_date[year] = MAX ( dim_date[year] ) - 1
+            && dim_date[month] = MAX ( dim_date[month] )
+            && dim_date[day] = MAX ( dim_date[day] )
+    )
+)
+
+Sales YoY % =
+DIVIDE ( [SUM Sales Net] - [Sales Same Period Last Year], [Sales Same Period Last Year] )
+
+// ---------------------------------------------------------------- منطقه / مشتری
+Sales Rank by Region =
+RANKX ( ALL ( dim_region[region_name_fa] ), [SUM Sales Net], , DESC, DENSE )
+
+Customers Buying =
+DISTINCTCOUNT ( fact_sales[customer_id] )
+
+Sales per Active Customer =
+DIVIDE ( [SUM Sales Net], [Customers Buying] )
+
+// سهم منطقه از کل فروش
+Region Share % =
+DIVIDE ( [SUM Sales Net], CALCULATE ( [SUM Sales Net], ALL ( dim_region ) ) )
+
+// ---------------------------------------------------------------- کالا
+Products Selling =
+DISTINCTCOUNT ( fact_sales[product_id] )
+
+Sales per Product =
+DIVIDE ( [SUM Sales Net], [Products Selling] )
+
+ABC Class (نمونه: بر پایهٔ رتبهٔ درآمد) =
+VAR rnk = RANKX ( ALL ( dim_product[product_id] ), [SUM Sales Net], , DESC, DENSE )
+VAR total = CALCULATE ( [Products Selling], ALL ( dim_product ) )
+RETURN
+    SWITCH ( TRUE (), rnk <= total * 0.2, "A", rnk <= total * 0.5, "B", "C" )
+
+// ---------------------------------------------------------------- کنترل کیفیت ETL
+Reject Rows =
+COUNTROWS ( etl_reject )
+
+Reject Rate % =
+DIVIDE ( COUNTROWS ( etl_reject ), COUNTROWS ( etl_reject ) + COUNTROWS ( fact_sales ) )
